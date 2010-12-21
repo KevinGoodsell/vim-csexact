@@ -8,12 +8,16 @@ if exists("loaded_csexact")
 endif
 let loaded_csexact = 1
 
-if has("gui_running") || !filewritable("/dev/tty")
-    finish
-endif
-
 let s:save_cpo = &cpo
 set cpo&vim
+
+" Not useful in the GUI, doesn't work without a tty device, and doesn't work
+" if Vim was built without GUI support prior to version 7.3.
+if has("gui_running") || !filewritable("/dev/tty")
+        \ || (!has("gui") && v:version < 703)
+    let &cpo = s:save_cpo
+    finish
+endif
 
 " NOTES
 " * Can also use \033]12;spec\007 to set cursor color, not sure how to
@@ -31,7 +35,6 @@ set cpo&vim
 " TODO
 " * Handle 'background' and colorschemes that check it.
 " * Handle screen.
-" * Figure out if gui-feature needs to be checked.
 " * Try checking for other Vims on the tty before resetting colors
 
 " XXX Problems
