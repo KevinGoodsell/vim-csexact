@@ -18,8 +18,6 @@ set cpo&vim
 " NOTES
 " * Can also use \033]12;spec\007 to set cursor color, not sure how to
 "   reset.
-" * Should use xterm's color reset code when supported.
-" * Should be using autocmd TermChanged?
 
 " Configuration
 " * A colorscheme blacklist would be good (maybe just a pattern?)
@@ -28,10 +26,13 @@ set cpo&vim
 "   - Actually, any autocmd ColorScheme set in .vimrc will work as a pre-hook.
 " * Allow colors to be reset or not on exit? Not resetting would help the
 "   suspend->new instance->exit->resume case.
+" * Override &term and &t_Co
 
 " TODO
-" * Things named "rgb" that can actually be arbitrary color names should be
-"   fixed.
+" * Handle 'background' and colorschemes that check it.
+" * Handle screen.
+" * Figure out if gui-feature needs to be checked.
+" * Try checking for other Vims on the tty before resetting colors
 
 " XXX Problems
 " - 'background'
@@ -39,8 +40,6 @@ set cpo&vim
 " - Anything missing in the GUI might be ugly in the terminal, and some things
 "   are terminal-only.
 " - :gvim might leave terminal colors wrong.
-" - GNU Screen might be supportable if the underlying terminal can be checked.
-" - Vim built without gui might not work at all
 
 " {{{ Tools to support 'rethrow' in Vim
 
@@ -122,6 +121,13 @@ function! s:CSExactRefresh()
 
     try
         call s:CSExactRestartColors()
+        " g:colors_name needs to be unlet to prevent Vim from reloading the
+        " colorscheme (or unloading it in some cases) when 'background'
+        " changes (possibly as a result of the 'Normal' group's ctermbg being
+        " set). See options.c did_set_string_option's handling of
+        " 'background'.
+        let save_colors_name = g:colors_name
+        unlet g:colors_name
         try
             for group in hlgroups
                 let parts = matchlist(group, '\v^(\w+) +xxx (.*)$')
@@ -143,6 +149,7 @@ function! s:CSExactRefresh()
                 call s:CSExactTermAttrs(name, item_dict)
             endfor
         finally
+            let g:colors_name = save_colors_name
             call s:CSExactFinishColors()
         endtry
     catch
@@ -187,6 +194,7 @@ function! s:CSExactTermAttrs(name, items)
 endfunction
 
 function! s:CSExactTermColor(name, color, ground)
+    " 'foreground' works in the GUI but it has to be 'fg' in the terminal.
     if a:color =~? '\v^(fg|foreground)$'
         let term_color = "fg"
     elseif a:color =~? '\v^(bg|background)$'
@@ -220,10 +228,10 @@ function! s:CSExactFinishColors()
     endif
 endfunction
 
-function! s:CSExactGetColor(rgb)
-    let rgb = s:CSExactNormalizeColor(a:rgb)
-    if has_key(s:csexact_colors, rgb)
-        return s:csexact_colors[rgb]
+function! s:CSExactGetColor(colorname)
+    let colorname = s:CSExactNormalizeColor(a:colorname)
+    if has_key(s:csexact_colors, colorname)
+        return s:csexact_colors[colorname]
     endif
 
     if s:csexact_next_color >= &t_Co
@@ -232,8 +240,8 @@ function! s:CSExactGetColor(rgb)
 
     let c = s:csexact_next_color
     let s:csexact_next_color += 1
-    let s:csexact_colors[rgb] = c
-    call s:CSExactSetColor(c, rgb)
+    let s:csexact_colors[colorname] = c
+    call s:CSExactSetColor(c, colorname)
 
     return c
 endfunction
@@ -281,11 +289,11 @@ function! s:CSExactSendCode(code)
     call writefile([a:code], "/dev/tty", "b")
 endfunction
 
-function! s:CSExactSetColor(c, rgb)
+function! s:CSExactSetColor(c, colorname)
     " The Xterm color-setting command is '\033]4;c;spec\007', where c is the
     " color number and spec is in a format accepted by XParseColor. This
     " accepts colors that Vim accepts.
-    let command = printf(';%d;%s', a:c, a:rgb)
+    let command = printf(';%d;%s', a:c, a:colorname)
     call add(s:csexact_color_string, command)
 endfunction
 
@@ -308,24 +316,6 @@ augroup END
 
 command! CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
 command! CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
-
-" {{{ XXX Testing
-
-function! g:CSExactTest(c, rgb)
-    call s:CSExactStartColors()
-    call s:CSExactSetColor(a:c, a:rgb)
-    call s:CSExactFinishColors()
-endfunction
-
-function! g:CSExactVar(name)
-    if a:name =~# '\v^s:'
-        exec "return " . a:name
-    else
-        exec "return s:" . a:name
-    endif
-endfunction
-
-" }}}
 
 " {{{ Data
 
