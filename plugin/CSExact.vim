@@ -22,6 +22,9 @@ endif
 " NOTES
 " * Can also use \033]12;spec\007 to set cursor color, not sure how to
 "   reset.
+" * Maybe the highlight list should be pre-processed to make all the info
+"   easily available. This would make the recoloring loop simpler and make
+"   special handling for groups like Normal easier.
 
 " Configuration
 " * A colorscheme blacklist would be good (maybe just a pattern?)
@@ -33,9 +36,9 @@ endif
 " * Override &term and &t_Co
 
 " TODO
-" * Handle 'background' and colorschemes that check it.
-" * Handle screen.
-" * Try checking for other Vims on the tty before resetting colors
+
+" TODO later
+" * Refactor for multiple terminals, add Screen support (use ESC P)
 
 " XXX Problems
 " - 'background'
@@ -119,9 +122,32 @@ function! s:CSExactRefresh()
         throw "Normal highlight group missing or incomplete"
     endif
 
+    let normalbg = matchstr(normal, '\vguibg\=\zs#?(\w|\s)+\ze($| \w+\=)')
+    let normalbg = tolower(normalbg)
+    if has_key(s:csexact_extra_colors, normalbg)
+        let normalbg = s:csexact_extra_colors[normalbg]
+    endif
+    let normalbg_rgb = matchlist(normalbg, '\v^#(\x\x)(\x\x)(\x\x)')
+    if empty(normalbg_rgb)
+        echomsg "Warning: 'background' can't be inferred, might be incorrect"
+        let background = "light"
+    else
+        let [r, g, b] = normalbg_rgb[1:3]
+        " Luminence is calculated as Y = 0.2126 R + 0.7152 G + 0.0722 B
+        let lum = 2126 * str2nr(r, 16) + 7152 * str2nr(g, 16)
+              \ +  722 * str2nr(b, 16)
+        " lum should be 0 to 2550000
+        if lum < 1275000
+            let background = "dark"
+        else
+            let background = "light"
+        endif
+    endif
+
     " Put normal in the front.
     call insert(hlgroups, normal)
 
+    " XXX This is a good candidate for splitting into a new function.
     try
         call s:CSExactRestartColors()
         " g:colors_name needs to be unlet to prevent Vim from reloading the
@@ -150,6 +176,14 @@ function! s:CSExactRefresh()
                 endfor
 
                 call s:CSExactTermAttrs(name, item_dict)
+
+                " The first time through (after setting 'Normal'), fix
+                " 'background'. Vim sets it incorrectly when Normal's ctermbg
+                " is set.
+                if exists("background")
+                    let &background = background
+                    unlet background
+                endif
             endfor
         finally
             let g:colors_name = save_colors_name
