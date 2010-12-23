@@ -3,6 +3,91 @@
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
+" {{{ COPYRIGHT & LICENSE
+"
+" Copyright 2010 Kevin Goodsell
+"
+" This program is free software: you can redistribute it and/or modify it under
+" the terms of the GNU General Public License as published by the Free Software
+" Foundation, either version 3 of the License, or (at your option) any later
+" version.
+"
+" This program is distributed in the hope that it will be useful, but WITHOUT
+" ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+" FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+" details.
+"
+" You should have received a copy of the GNU General Public License along with
+" this program.  If not, see <http://www.gnu.org/licenses/>.
+"
+" }}}
+" {{{ NOTES
+"
+" This plugin allows the use of GUI (GVim) color schemes in (some) terminals.
+" This is done by using terminal magic to modify the terminal's color palette
+" on startup and each time a color scheme is loaded.
+"
+" Supported Terminals:
+"
+"   Currently GNOME Terminal, xterm, and rxvt are supported. For all
+"   terminals, at least 88 color support is required. The intent is to support
+"   additional terminals in future releases.
+"
+" Issues:
+"
+"   There are some inherent issues in this method of setting Vim's colors.
+"
+"   * It obviously only works with terminals that support changing the palette.
+"   * The colors are modified in the terminal itself. This will affect other
+"     terminal applications. The "system colors" (colors 0 to 15) are never
+"     changed, which helps minimize this problem.
+"   * The terminal colors are reset when Vim exits, but this can create other
+"     problems:
+"     - If a running Vim is suspended, and a new instance is started then
+"       terminated, the colors will be reset by the second instance. When the
+"       first instance is resumed, the colors will be wrong.
+"     - There's no reliable way to reset the colors, so in most cases they
+"       will simply be set to pre-defined defaults. These defaults may not
+"       match the user's settings.
+"   * If Vim exits abnormally, and the VimLeave autocommands are not executed,
+"     the colors will not be restored. In particular, when the user moves to a
+"     GUI with :gvim or :gui, the terminal colors are not restored.
+"   * Proper handling of colors depends on the color scheme actually setting
+"     GUI colors properly. Some color schemes will check for a terminal Vim
+"     session and not set GUI colors in that case.
+"
+" Thanks:
+"
+"   Special thanks to Matt Wozniski (godlygeek on github) for writing
+"   CSApprox, the primary inspiration for this plugin.
+"
+" }}}
+" {{{ USAGE
+"
+" Install this file in a plugin/ sub-directory in your runtimepath (typically
+" ~/.vim/plugin, or ~/.vim/bundle/CSExact/ if you use the pathogen plugin).
+"
+" After installation, the plugin will function automatically via autocommands.
+" You can use explicit commands also, when necessary.
+"
+" Commands:
+"
+"   :CSExactColors
+"
+"     Sets terminal palette and Vim colors based on the GUI colors of the
+"     current color scheme. This can be run at any time to update the colors,
+"     but is usually run automatically. Running this explicitly can repair
+"     incorrect colors caused by reseting the palette.
+"
+"   :CSExactResetColors
+"
+"     Resets the terminal palette. This is invoked automatically on exit, and
+"     usually shouldn't be needed.
+"
+" Configuration Options:
+"
+" }}}
+
 if exists("loaded_csexact")
     finish
 endif
@@ -36,16 +121,23 @@ endif
 " * Override &term and &t_Co
 
 " TODO
+" * What's needed before a beta release?
+"   - Top matter with license and notes.
+"   - Configuration
+"   - Test with original color schemes.
+" * Read in colors from $VIMRUNTIME/rgb.txt
+" * Some GUI colors end up with default values, which makes refreshing give
+"   incorrect results. This happens when a background change causes a reset.
+"   - Probably need to include GUI colors in the :hi commands.
 
 " TODO later
 " * Refactor for multiple terminals, add Screen support (use ESC P)
+" * Refactor highlight reading, create more useful representation of highlight
+"   items.
 
 " XXX Problems
-" - 'background'
-"   - I think the best thing to do is set it based on Normal's guibg.
 " - Anything missing in the GUI might be ugly in the terminal, and some things
 "   are terminal-only.
-" - :gvim might leave terminal colors wrong.
 
 " {{{ Tools to support 'rethrow' in Vim
 
@@ -351,8 +443,8 @@ augroup CSExact
     autocmd VimEnter,ColorScheme,TermChanged * CSExactColors
 augroup END
 
-command! CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
-command! CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
+command! -bar CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
+command! -bar CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
 
 " {{{ Data
 
