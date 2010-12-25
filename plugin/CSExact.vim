@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2010 Dec 24
+" Last Change: 2010 Dec 25
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -122,10 +122,6 @@ endif
 "   reset.
 
 " TODO
-" * What's needed before a beta release?
-"   - Test with original color schemes.
-
-" TODO later
 " * Refactor for multiple terminals, add Screen support (use ESC P)
 " * Refactor highlight reading, create more useful representation of highlight
 "   items.
