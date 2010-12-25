@@ -124,7 +124,6 @@ endif
 " TODO
 " * What's needed before a beta release?
 "   - Test with original color schemes.
-" * Read in colors from $VIMRUNTIME/rgb.txt
 " * Some GUI colors end up with default values, which makes refreshing give
 "   incorrect results. This happens when a background change causes a reset.
 "   - Probably need to include GUI colors in the :hi commands.
@@ -222,10 +221,7 @@ function! s:CSExactRefresh()
     endif
 
     let normalbg = matchstr(normal, '\vguibg\=\zs#?(\w|\s)+\ze($| \w+\=)')
-    let normalbg = tolower(normalbg)
-    if has_key(s:extra_colors, normalbg)
-        let normalbg = s:extra_colors[normalbg]
-    endif
+    let normalbg = s:NormalizeColor(normalbg)
     let normalbg_rgb = matchlist(normalbg, '\v^#(\x\x)(\x\x)(\x\x)')
     if empty(normalbg_rgb)
         echomsg "Warning: 'background' can't be inferred, might be incorrect"
@@ -443,8 +439,8 @@ endfunction
 
 function! s:NormalizeColor(color)
     let color = tolower(a:color)
-    if has_key(s:extra_colors, color)
-        return s:extra_colors[color]
+    if has_key(s:color_names, color)
+        return s:color_names[color]
     else
         return color
     endif
@@ -464,7 +460,7 @@ command! -bar CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
 " {{{ Data
 
 " From Vim source, gui_x11.c
-let s:extra_colors = {
+let s:color_names = {
     \ "lightred"     : "#ffbbbb",
     \ "lightgreen"   : "#88ff88",
     \ "lightmagenta" : "#ffbbff",
@@ -813,6 +809,23 @@ let s:xterm88 = {
     \ 86 : "#d0d0d0",
     \ 87 : "#e7e7e7",
 \ }
+
+function! s:ReadRgbTxt()
+    let lines = readfile($VIMRUNTIME . "/rgb.txt")
+
+    let colors = {}
+    for line in lines
+        let pieces = matchlist(line, '\v^\s*(\d+)\s+(\d+)\s+(\d+)\s+((\w| )+)')
+        if !empty(pieces)
+            let [r, g, b, name] = pieces[1:4]
+            let colors[tolower(name)] = printf("#%02x%02x%02x", r, g, b)
+        endif
+    endfor
+
+    return colors
+endfunction
+
+call extend(s:color_names, s:ReadRgbTxt())
 
 " }}}
 
