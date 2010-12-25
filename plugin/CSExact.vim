@@ -181,21 +181,20 @@ function! s:CSExactErrorWrapper(func, ...)
     endtry
 endfunction
 
-function! s:CSExactTerm()
+function! s:Term()
     return get(g:, "csexact_term_override", &term)
 endfunction
 
-function! s:CSExactColors()
+function! s:Colors()
     return get(g:, "csexact_colors_override", &t_Co)
 endfunction
 
-function! s:CSExactSupported()
-    return s:CSExactColors() >= 88
-        \ && s:CSExactTerm() =~# '\v^(xterm|gnome|rxvt)'
+function! s:Supported()
+    return s:Colors() >= 88 && s:Term() =~# '\v^(xterm|gnome|rxvt)'
 endfunction
 
 function! s:CSExactRefresh()
-    if !s:CSExactSupported()
+    if !s:Supported()
         return
     endif
 
@@ -224,8 +223,8 @@ function! s:CSExactRefresh()
 
     let normalbg = matchstr(normal, '\vguibg\=\zs#?(\w|\s)+\ze($| \w+\=)')
     let normalbg = tolower(normalbg)
-    if has_key(s:csexact_extra_colors, normalbg)
-        let normalbg = s:csexact_extra_colors[normalbg]
+    if has_key(s:extra_colors, normalbg)
+        let normalbg = s:extra_colors[normalbg]
     endif
     let normalbg_rgb = matchlist(normalbg, '\v^#(\x\x)(\x\x)(\x\x)')
     if empty(normalbg_rgb)
@@ -249,7 +248,7 @@ function! s:CSExactRefresh()
 
     " XXX This is a good candidate for splitting into a new function.
     try
-        call s:CSExactRestartColors()
+        call s:RestartColors()
         " g:colors_name needs to be unlet to prevent Vim from reloading the
         " colorscheme (or unloading it in some cases) when 'background'
         " changes (possibly as a result of the 'Normal' group's ctermbg being
@@ -275,7 +274,7 @@ function! s:CSExactRefresh()
                     let item_dict[key] = value
                 endfor
 
-                call s:CSExactTermAttrs(name, item_dict)
+                call s:TermAttrs(name, item_dict)
 
                 " The first time through (after setting 'Normal'), fix
                 " 'background'. Vim sets it incorrectly when Normal's ctermbg
@@ -287,10 +286,10 @@ function! s:CSExactRefresh()
             endfor
         finally
             let g:colors_name = save_colors_name
-            call s:CSExactFinishColors()
+            call s:FinishColors()
         endtry
     catch
-        call s:CSExactReset()
+        call s:Reset()
         call s:Rethrow()
     endtry
 endfunction
@@ -304,7 +303,7 @@ function s:CSExactCheckColorscheme()
     endif
 endfunction
 
-function! s:CSExactTermAttrs(name, items)
+function! s:TermAttrs(name, items)
     exec printf("hi %s cterm=NONE ctermfg=NONE ctermbg=NONE", a:name)
 
     " Retrieve, but don't set attributes
@@ -321,15 +320,15 @@ function! s:CSExactTermAttrs(name, items)
     if match(attrs, '\v^undercurl$') >= 0
         call add(cterm_attrs, "underline")
         if has_key(a:items, "guisp")
-            call s:CSExactTermColor(a:name, a:items["guisp"], "fg")
+            call s:TermColor(a:name, a:items["guisp"], "fg")
         endif
     elseif has_key(a:items, "guifg")
-        call s:CSExactTermColor(a:name, a:items["guifg"], "fg")
+        call s:TermColor(a:name, a:items["guifg"], "fg")
     endif
 
     " Background
     if has_key(a:items, "guibg")
-        call s:CSExactTermColor(a:name, a:items["guibg"], "bg")
+        call s:TermColor(a:name, a:items["guibg"], "bg")
     endif
 
     " Finally set attributes
@@ -339,7 +338,7 @@ function! s:CSExactTermAttrs(name, items)
     exec printf("hi %s cterm=%s", a:name, join(cterm_attrs, ","))
 endfunction
 
-function! s:CSExactTermColor(name, color, ground)
+function! s:TermColor(name, color, ground)
     " 'foreground' works in the GUI but it has to be 'fg' in the terminal.
     if a:color =~? '\v^(fg|foreground)$'
         let term_color = "fg"
@@ -348,7 +347,7 @@ function! s:CSExactTermColor(name, color, ground)
     elseif a:color =~? '\v^none$'
         let term_color = "none"
     else
-        let term_color = s:CSExactGetColor(a:color)
+        let term_color = s:GetColor(a:color)
     endif
     exec printf("hi %s cterm%s=%s", a:name, a:ground, term_color)
 endfunction
@@ -357,96 +356,95 @@ endfunction
 
 " Public portion:
 
-function! s:CSExactStartColors()
-    let s:csexact_color_string = []
+function! s:StartColors()
+    let s:color_string = []
 endfunction
 
-function! s:CSExactRestartColors()
-    let s:csexact_next_color = 16
-    let s:csexact_colors = {}
-    call s:CSExactStartColors()
+function! s:RestartColors()
+    let s:next_color = 16
+    let s:colors = {}
+    call s:StartColors()
 endfunction
 
-function! s:CSExactFinishColors()
-    if !empty(s:csexact_color_string)
-        call s:CSExactSendCode(printf("\033]4%s\007",
-                                    \ join(s:csexact_color_string, "")))
+function! s:FinishColors()
+    if !empty(s:color_string)
+        call s:SendCode(printf("\033]4%s\007", join(s:color_string, "")))
     endif
 endfunction
 
-function! s:CSExactGetColor(colorname)
-    let colorname = s:CSExactNormalizeColor(a:colorname)
-    if has_key(s:csexact_colors, colorname)
-        return s:csexact_colors[colorname]
+function! s:GetColor(colorname)
+    let colorname = s:NormalizeColor(a:colorname)
+    if has_key(s:colors, colorname)
+        return s:colors[colorname]
     endif
 
-    if s:csexact_next_color >= s:CSExactColors()
+    if s:next_color >= s:Colors()
         throw "out of terminal colors"
     endif
 
-    let c = s:csexact_next_color
-    let s:csexact_next_color += 1
-    let s:csexact_colors[colorname] = c
-    call s:CSExactSetColor(c, colorname)
+    let c = s:next_color
+    let s:next_color += 1
+    let s:colors[colorname] = c
+    call s:SetColor(c, colorname)
 
     return c
 endfunction
 
 function! s:CSExactReset()
-    if !s:CSExactSupported()
+    if !s:Supported()
         return
     endif
 
     " Special case: XTerm patch 252 and up supports OSC 104 to reset colors.
-    if s:CSExactTerm() =~# '\v^xterm'
+    if s:Term() =~# '\v^xterm'
         let patch = matchstr($XTERM_VERSION, '\v^XTerm\(\zs\d+\ze\)')
         if str2nr(patch) >= 252
-            call s:CSExactSendCode("\033]104\007")
+            call s:SendCode("\033]104\007")
         endif
     else
-        call s:CSExactStartColors()
+        call s:StartColors()
 
-        if s:CSExactColors() == 88
-            let defaults = s:csexact_xterm88
-        elseif s:CSExactColors() == 256
-            let defaults = s:csexact_xterm256
+        if s:Colors() == 88
+            let defaults = s:xterm88
+        elseif s:Colors() == 256
+            let defaults = s:xterm256
         else
             " No idea what defaults to use here.
             let defaults = {}
         endif
 
         for [cnum, color] in items(defaults)
-            call s:CSExactSetColor(cnum, color)
+            call s:SetColor(cnum, color)
         endfor
 
-        call s:CSExactFinishColors()
+        call s:FinishColors()
     endif
 
-    let s:csexact_colors = {}
-    let s:csexact_next_color = 16
+    let s:colors = {}
+    let s:next_color = 16
 endfunction
 
 " Internal (non-public) portion:
 
-let s:csexact_colors = {} " { 'color_spec' : color_num }
-let s:csexact_next_color = 16
+let s:colors = {} " { 'color_spec' : color_num }
+let s:next_color = 16
 
-function! s:CSExactSendCode(code)
+function! s:SendCode(code)
     call writefile([a:code], "/dev/tty", "b")
 endfunction
 
-function! s:CSExactSetColor(c, colorname)
+function! s:SetColor(c, colorname)
     " The Xterm color-setting command is '\033]4;c;spec\007', where c is the
     " color number and spec is in a format accepted by XParseColor. This
     " accepts colors that Vim accepts.
     let command = printf(';%d;%s', a:c, a:colorname)
-    call add(s:csexact_color_string, command)
+    call add(s:color_string, command)
 endfunction
 
-function! s:CSExactNormalizeColor(color)
+function! s:NormalizeColor(color)
     let color = tolower(a:color)
-    if has_key(s:csexact_extra_colors, color)
-        return s:csexact_extra_colors[color]
+    if has_key(s:extra_colors, color)
+        return s:extra_colors[color]
     else
         return color
     endif
@@ -466,7 +464,7 @@ command! -bar CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
 " {{{ Data
 
 " From Vim source, gui_x11.c
-let s:csexact_extra_colors = {
+let s:extra_colors = {
     \ "lightred"     : "#ffbbbb",
     \ "lightgreen"   : "#88ff88",
     \ "lightmagenta" : "#ffbbff",
@@ -497,7 +495,7 @@ let s:csexact_extra_colors = {
 \ }
 
 " From xterm source, 256colres.h
-let s:csexact_xterm256 = {
+let s:xterm256 = {
     \ 16  : "#000000",
     \ 17  : "#00005f",
     \ 18  : "#000087",
@@ -741,7 +739,7 @@ let s:csexact_xterm256 = {
 \ }
 
 " From xterm source, 88colres.h
-let s:csexact_xterm88 = {
+let s:xterm88 = {
     \ 16 : "#000000",
     \ 17 : "#00008b",
     \ 18 : "#0000cd",
