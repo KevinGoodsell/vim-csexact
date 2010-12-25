@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2010 Dec 15
+" Last Change: 2010 Dec 24
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -86,6 +86,19 @@
 "
 " Configuration Options:
 "
+"   g:csexact_term_override
+"
+"     Set the terminal name. Uses 'term' setting if unset.
+"
+"   g:csexact_colors_override
+"
+"     Set the number of terminal colors. Uses 't_Co' if unset.
+"
+"   g:csexact_blacklist
+"
+"     This is a pattern describing colorscheme names that should not be
+"     colorized with CSExact.
+"
 " }}}
 
 if exists("loaded_csexact")
@@ -107,23 +120,9 @@ endif
 " NOTES
 " * Can also use \033]12;spec\007 to set cursor color, not sure how to
 "   reset.
-" * Maybe the highlight list should be pre-processed to make all the info
-"   easily available. This would make the recoloring loop simpler and make
-"   special handling for groups like Normal easier.
-
-" Configuration
-" * A colorscheme blacklist would be good (maybe just a pattern?)
-" * Maybe hooks for pre- and post-fixup
-"   - I would definitely like this for adjusting colors.
-"   - Actually, any autocmd ColorScheme set in .vimrc will work as a pre-hook.
-" * Allow colors to be reset or not on exit? Not resetting would help the
-"   suspend->new instance->exit->resume case.
-" * Override &term and &t_Co
 
 " TODO
 " * What's needed before a beta release?
-"   - Top matter with license and notes.
-"   - Configuration
 "   - Test with original color schemes.
 " * Read in colors from $VIMRUNTIME/rgb.txt
 " * Some GUI colors end up with default values, which makes refreshing give
@@ -182,8 +181,17 @@ function! s:CSExactErrorWrapper(func, ...)
     endtry
 endfunction
 
+function! s:CSExactTerm()
+    return get(g:, "csexact_term_override", &term)
+endfunction
+
+function! s:CSExactColors()
+    return get(g:, "csexact_colors_override", &t_Co)
+endfunction
+
 function! s:CSExactSupported()
-    return &t_Co >= 88 && &term =~# '\v^(xterm|gnome|rxvt)'
+    return s:CSExactColors() >= 88
+        \ && s:CSExactTerm() =~# '\v^(xterm|gnome|rxvt)'
 endfunction
 
 function! s:CSExactRefresh()
@@ -287,6 +295,15 @@ function! s:CSExactRefresh()
     endtry
 endfunction
 
+function s:CSExactCheckColorscheme()
+    if exists("g:colors_name")
+        \ && g:colors_name =~ get(g:, "csexact_blacklist", '\v^$')
+        CSExactResetColors
+    else
+        CSExactColors
+    endif
+endfunction
+
 function! s:CSExactTermAttrs(name, items)
     exec printf("hi %s cterm=NONE ctermfg=NONE ctermbg=NONE", a:name)
 
@@ -363,7 +380,7 @@ function! s:CSExactGetColor(colorname)
         return s:csexact_colors[colorname]
     endif
 
-    if s:csexact_next_color >= &t_Co
+    if s:csexact_next_color >= s:CSExactColors()
         throw "out of terminal colors"
     endif
 
@@ -381,7 +398,7 @@ function! s:CSExactReset()
     endif
 
     " Special case: XTerm patch 252 and up supports OSC 104 to reset colors.
-    if &term =~# '\v^xterm'
+    if s:CSExactTerm() =~# '\v^xterm'
         let patch = matchstr($XTERM_VERSION, '\v^XTerm\(\zs\d+\ze\)')
         if str2nr(patch) >= 252
             call s:CSExactSendCode("\033]104\007")
@@ -389,9 +406,9 @@ function! s:CSExactReset()
     else
         call s:CSExactStartColors()
 
-        if &t_Co == 88
+        if s:CSExactColors() == 88
             let defaults = s:csexact_xterm88
-        elseif &t_Co == 256
+        elseif s:CSExactColors() == 256
             let defaults = s:csexact_xterm256
         else
             " No idea what defaults to use here.
@@ -440,7 +457,7 @@ endfunction
 augroup CSExact
     autocmd!
     autocmd VimLeave * CSExactResetColors
-    autocmd VimEnter,ColorScheme,TermChanged * CSExactColors
+    autocmd VimEnter,ColorScheme,TermChanged * call s:CSExactCheckColorscheme()
 augroup END
 
 command! -bar CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
