@@ -124,9 +124,6 @@ endif
 " TODO
 " * What's needed before a beta release?
 "   - Test with original color schemes.
-" * Some GUI colors end up with default values, which makes refreshing give
-"   incorrect results. This happens when a background change causes a reset.
-"   - Probably need to include GUI colors in the :hi commands.
 
 " TODO later
 " * Refactor for multiple terminals, add Screen support (use ESC P)
@@ -136,6 +133,7 @@ endif
 " XXX Problems
 " - Anything missing in the GUI might be ugly in the terminal, and some things
 "   are terminal-only.
+" - 'shine' Statement group is weird due to special terminal handling.
 
 " {{{ Tools to support 'rethrow' in Vim
 
@@ -279,6 +277,14 @@ function! s:CSExactRefresh()
                     let &background = background
                     unlet background
                 endif
+
+                " GUI items get reset when 'background' is changed, so fix
+                " them.
+                exec printf("hi %s gui='%s' guifg='%s' guibg='%s' guisp='%s'",
+                    \ name, get(item_dict, "gui", "NONE"),
+                    \ get(item_dict, "guifg", "NONE"),
+                    \ get(item_dict, "guibg", "NONE"),
+                    \ get(item_dict, "guisp", "NONE"))
             endfor
         finally
             let g:colors_name = save_colors_name
