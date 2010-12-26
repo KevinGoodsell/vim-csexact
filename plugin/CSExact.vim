@@ -397,10 +397,12 @@ function! s:CSExactReset()
 
     " Special case: XTerm patch 252 and up supports OSC 104 to reset colors.
     if s:Term() =~# '\v^xterm'
-        let patch = matchstr($XTERM_VERSION, '\v^XTerm\(\zs\d+\ze\)')
-        if str2nr(patch) >= 252
-            call s:SendCode("\033]104\007")
-        endif
+        let xterm_patch = str2nr(matchstr($XTERM_VERSION,
+                                        \ '\v^XTerm\(\zs\d+\ze\)'))
+    endif
+
+    if exists("xterm_patch") && xterm_patch >= 252
+        call s:SendCode("\033]104\007")
     else
         call s:StartColors()
 
