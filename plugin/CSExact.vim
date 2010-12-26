@@ -131,7 +131,7 @@ endif
 "   are terminal-only.
 " - 'shine' Statement group is weird due to special terminal handling.
 
-" {{{ Tools to support 'rethrow' in Vim
+" {{{ RETHROW SUPPORT
 
 let s:rethrow_pattern = '\v\<SNR\>\d+_Rethrow>'
 
@@ -161,6 +161,7 @@ function! s:Throwpoint()
 endfunction
 
 " }}}
+" {{{ IMPLEMENTATION
 
 function! s:CSExactErrorWrapper(func, ...)
     try
@@ -352,6 +353,7 @@ function! s:TermColor(name, color, ground)
     exec printf("hi %s cterm%s=%s", a:name, a:ground, term_color)
 endfunction
 
+" }}}
 " {{{ COLOR HANDLING
 
 " Public portion:
@@ -453,6 +455,7 @@ function! s:NormalizeColor(color)
 endfunction
 
 " }}}
+" {{{ COMMANDS
 
 augroup CSExact
     autocmd!
@@ -463,7 +466,8 @@ augroup END
 command! -bar CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
 command! -bar CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
 
-" {{{ Data
+" }}}
+" {{{ DATA
 
 " From Vim source, gui_x11.c
 let s:color_names = {
