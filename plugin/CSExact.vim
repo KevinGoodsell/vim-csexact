@@ -195,6 +195,8 @@ function! s:CSExactRefresh()
     silent highlight
     redir END
 
+    " :highlight wraps, need to unwrap.
+    let hltext = substitute(hltext, '\v\n +', " ", "g")
     let hlgroups = split(hltext, '\n')
 
     " Some items aren't used in the terminal, so don't waste colors on them.
@@ -253,7 +255,7 @@ function! s:CSExactRefresh()
                     continue
                 endif
                 let [name, item_string] = parts[1:2]
-                if item_string =~# '\v^(links to |cleared$)'
+                if item_string =~# '\v(^| )links to |^cleared$'
                     continue
                 endif
 
