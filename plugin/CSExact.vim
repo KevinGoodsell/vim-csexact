@@ -123,8 +123,10 @@ endif
 
 " TODO
 " * Refactor for multiple terminals, add Screen support (use ESC P)
-" * Refactor highlight reading, create more useful representation of highlight
-"   items.
+" * "normalizing" is probably happening for pseudo-colors.
+" * Consider refactoring :hi calls to minimize them. Currently there are
+"   probably something like 5 calls per group.
+" * Get rid of :hi abbreviations. Makes searching hard.
 
 " XXX Problems
 " - Anything missing in the GUI might be ugly in the terminal, and some things
@@ -192,40 +194,24 @@ function! s:CSExactRefresh()
         return
     endif
 
-    redir => hltext
-    silent highlight
-    redir END
+    let highlights = s:GetHighlights()
+    let normal = get(highlights, "Normal", {})
 
-    " :highlight wraps, need to unwrap.
-    let hltext = substitute(hltext, '\v\n +', " ", "g")
-    let hlgroups = split(hltext, '\n')
-
-    " Some items aren't used in the terminal, so don't waste colors on them.
-    let gui_only = '\v\c^(Cursor|CursorIM|lCursor|Menu|ScrollBar|Tooltip) '
-    call filter(hlgroups, "v:val !~ gui_only")
-
-    " Need to do special stuff with Normal. For one thing, it has to come
-    " first to allow the 'fg' and 'bg' pseudo-colors.
-    let norm_idx = match(hlgroups, '\v^Normal\s')
-    if norm_idx >= 0
-        let normal = remove(hlgroups, norm_idx)
-    else
-        let normal = ""
-    endif
-
-    if normal !~? '\vguifg\=' || normal !~? '\vguibg\='
+    " Missing guifg or guibg breaks 'fg' and 'bg' pseudo-colors.
+    " XXX Does it really make sense to give up?
+    if !(has_key(normal, "guifg") && has_key(normal, "guibg"))
         throw "Normal highlight group missing or incomplete"
     endif
 
-    let normalbg = matchstr(normal, '\vguibg\=\zs#?(\w|\s)+\ze($| \w+\=)')
-    let normalbg = s:NormalizeColor(normalbg)
-    let normalbg_rgb = matchlist(normalbg, '\v^#(\x\x)(\x\x)(\x\x)')
+    " Try to infer 'background'. In a terminal Vim will set 'background' based
+    " on Normal's ctermbg, but does so very naively and often incorrectly.
+    let normalbg_rgb = matchlist(normal.guibg, '\v^#(\x\x)(\x\x)(\x\x)')
     if empty(normalbg_rgb)
         echomsg "Warning: 'background' can't be inferred, might be incorrect"
         let background = "light"
     else
         let [r, g, b] = normalbg_rgb[1:3]
-        " Luminence is calculated as Y = 0.2126 R + 0.7152 G + 0.0722 B
+        " Luminance is calculated as Y = 0.2126 R + 0.7152 G + 0.0722 B
         let lum = 2126 * str2nr(r, 16) + 7152 * str2nr(g, 16)
               \ +  722 * str2nr(b, 16)
         " lum should be 0 to 2550000
@@ -236,10 +222,13 @@ function! s:CSExactRefresh()
         endif
     endif
 
-    " Put normal in the front.
-    call insert(hlgroups, normal)
+    " 'Normal' needs to be first so 'fg' and 'bg' are available.
+    let group_names = keys(highlights)
+    let normal_idx = index(group_names, "Normal")
+    " Swap into first position.
+    let [group_names[0], group_names[normal_idx]] =
+      \ [group_names[normal_idx], group_names[0]]
 
-    " XXX This is a good candidate for splitting into a new function.
     try
         call s:RestartColors()
         " g:colors_name needs to be unlet to prevent Vim from reloading the
@@ -250,24 +239,20 @@ function! s:CSExactRefresh()
         let save_colors_name = g:colors_name
         unlet g:colors_name
         try
-            for group in hlgroups
-                let parts = matchlist(group, '\v^(\w+) +xxx (.*)$')
-                if empty(parts)
-                    continue
-                endif
-                let [name, item_string] = parts[1:2]
-                if item_string =~# '\v(^| )links to |^cleared$'
+            for name in group_names
+                " Some items aren't used in the terminal, so don't waste
+                " palette slots on them.
+                if name =~ '\v^(Cursor|CursorIM|lCursor|Menu|ScrollBar|Tooltip)$'
                     continue
                 endif
 
-                let item_list = split(item_string, '\v \ze\w+\=')
-                let item_dict = {}
-                for item in item_list
-                    let [key, value] = matchlist(item, '\v^(\w+)\=(.*)$')[1:2]
-                    let item_dict[key] = value
-                endfor
+                let items = highlights[name]
 
-                call s:TermAttrs(name, item_dict)
+                if has_key(items, "links_to")
+                    continue
+                endif
+
+                call s:TermAttrs(name, items)
 
                 " The first time through (after setting 'Normal'), fix
                 " 'background'. Vim sets it incorrectly when Normal's ctermbg
@@ -280,22 +265,76 @@ function! s:CSExactRefresh()
                 " GUI items get reset when 'background' is changed, so fix
                 " them.
                 exec printf("hi %s gui='%s' guifg='%s' guibg='%s' guisp='%s'",
-                    \ name, get(item_dict, "gui", "NONE"),
-                    \ get(item_dict, "guifg", "NONE"),
-                    \ get(item_dict, "guibg", "NONE"),
-                    \ get(item_dict, "guisp", "NONE"))
+                    \ name, join(get(items, "gui", ["NONE"]), ","),
+                    \ get(items, "guifg", "NONE"),
+                    \ get(items, "guibg", "NONE"),
+                    \ get(items, "guisp", "NONE"))
             endfor
         finally
             let g:colors_name = save_colors_name
             call s:FinishColors()
         endtry
     catch
-        call s:Reset()
+        call s:CSExactReset()
         call s:Rethrow()
     endtry
 endfunction
 
-function s:CSExactCheckColorscheme()
+function! s:GetHighlights()
+    redir => hltext
+    silent highlight
+    redir END
+
+    " :highlight wraps, need to unwrap.
+    let hltext = substitute(hltext, '\v\n +', " ", "g")
+    let hlgroups = split(hltext, '\n')
+
+    let result = {} " {'GroupName' : info_dict}
+    for group in hlgroups
+        let parts = matchlist(group, '\v^(\w+) +xxx (.*)$')
+        if empty(parts)
+            echomsg printf("CSExact: Bad highlight line '%s'", group)
+            continue
+        endif
+
+        let [name, item_string] = parts[1:2]
+
+        " Cleared?
+        if item_string == "cleared"
+            continue
+        endif
+
+        let items = {}
+
+        " Links To...?
+        let parts = matchlist(item_string, '\v^%((.*) )?links to (\w+)$')
+        if !empty(parts)
+            let [item_string, items.links_to] = parts[1:2]
+        endif
+
+        " Key-Value items
+        for kv in split(item_string, '\v \ze\w+\=')
+            let [key, value] = matchlist(kv, '\v^(\w+)\=(.*)$')[1:2]
+
+            if key =~? '\v(fg|bg|sp)$'
+                " Handle color
+                let norm = s:NormalizeColor(value)
+                let items[key] = norm
+            elseif key =~? '\v^(gui|term|cterm)$'
+                " Handle attributes
+                let items[key] = split(value, ",")
+            else
+                echomsg printf("CSExact: Unknown highlight key '%s'", key)
+            endif
+        endfor
+
+        let result[name] = items
+    endfor
+
+    return result
+endfunction
+
+function! s:CSExactCheckColorscheme()
     if exists("g:colors_name")
         \ && g:colors_name =~ get(g:, "csexact_blacklist", '\v^$')
         CSExactResetColors
@@ -308,21 +347,19 @@ function! s:TermAttrs(name, items)
     exec printf("hi %s cterm=NONE ctermfg=NONE ctermbg=NONE", a:name)
 
     " Retrieve, but don't set attributes
-    if has_key(a:items, "gui")
-        let attrs = split(a:items["gui"], ',')
-        let supported_attr = '\v^(bold|underline|reverse)$'
-        let cterm_attrs = filter(copy(attrs), "v:val =~ supported_attr")
-    else
-        let attrs = []
-        let cterm_attrs = []
+    let attrs = get(a:items, "gui", [])
+    let supported_attr = '\v^(bold|underline|reverse)$'
+    let cterm_attrs = filter(copy(attrs), "v:val =~ supported_attr")
+
+    " Use underline to replace undercurl
+    let undercurl = index(attrs, "undercurl") >= 0
+    if undercurl
+        call add(cterm_attrs, "underline")
     endif
 
     " Foreground, using guisp or guifg depending on the presence of undercurl
-    if match(attrs, '\v^undercurl$') >= 0
-        call add(cterm_attrs, "underline")
-        if has_key(a:items, "guisp")
-            call s:TermColor(a:name, a:items["guisp"], "fg")
-        endif
+    if undercurl && has_key(a:items, "guisp")
+        call s:TermColor(a:name, a:items["guisp"], "fg")
     elseif has_key(a:items, "guifg")
         call s:TermColor(a:name, a:items["guifg"], "fg")
     endif
