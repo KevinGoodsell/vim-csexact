@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2010 Dec 25
+" Last Change: 2010 Dec 27
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -126,12 +126,10 @@ endif
 " * "normalizing" is probably happening for pseudo-colors.
 " * Consider refactoring :hi calls to minimize them. Currently there are
 "   probably something like 5 calls per group.
-" * Get rid of :hi abbreviations. Makes searching hard.
 
 " XXX Problems
 " - Anything missing in the GUI might be ugly in the terminal, and some things
 "   are terminal-only.
-" - 'shine' Statement group is weird due to special terminal handling.
 
 " {{{ RETHROW SUPPORT
 
@@ -264,7 +262,7 @@ function! s:CSExactRefresh()
 
                 " GUI items get reset when 'background' is changed, so fix
                 " them.
-                exec printf("hi %s gui='%s' guifg='%s' guibg='%s' guisp='%s'",
+                exec printf("highlight %s gui='%s' guifg='%s' guibg='%s' guisp='%s'",
                     \ name, join(get(items, "gui", ["NONE"]), ","),
                     \ get(items, "guifg", "NONE"),
                     \ get(items, "guibg", "NONE"),
@@ -344,7 +342,7 @@ function! s:CSExactCheckColorscheme()
 endfunction
 
 function! s:TermAttrs(name, items)
-    exec printf("hi %s cterm=NONE ctermfg=NONE ctermbg=NONE", a:name)
+    exec printf("highlight %s cterm=NONE ctermfg=NONE ctermbg=NONE", a:name)
 
     " Retrieve, but don't set attributes
     let attrs = get(a:items, "gui", [])
@@ -373,7 +371,7 @@ function! s:TermAttrs(name, items)
     if empty(cterm_attrs)
         let cterm_attrs = ['NONE']
     endif
-    exec printf("hi %s cterm=%s", a:name, join(cterm_attrs, ","))
+    exec printf("highlight %s cterm=%s", a:name, join(cterm_attrs, ","))
 endfunction
 
 function! s:TermColor(name, color, ground)
@@ -387,7 +385,7 @@ function! s:TermColor(name, color, ground)
     else
         let term_color = s:GetColor(a:color)
     endif
-    exec printf("hi %s cterm%s=%s", a:name, a:ground, term_color)
+    exec printf("highlight %s cterm%s=%s", a:name, a:ground, term_color)
 endfunction
 
 " }}}
