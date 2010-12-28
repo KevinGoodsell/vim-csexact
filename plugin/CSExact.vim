@@ -120,12 +120,20 @@ endif
 " NOTES
 " * Can also use \033]12;spec\007 to set cursor color, not sure how to
 "   reset.
+"   - Xterm's \033]112\007 is supposed to reset, but this works in an odd way.
+"     If the cursorColor resource is not explicitly set anywhere, \033]12
+"     changes the value of the default (XtDefaultForeground), so reseting to
+"     the default does nothing.
+"   - GNOME Terminal appears to not recognize this.
 
 " TODO
 " * Refactor for multiple terminals, add Screen support (use ESC P)
-" * "normalizing" is probably happening for pseudo-colors.
 " * Consider refactoring :hi calls to minimize them. Currently there are
 "   probably something like 5 calls per group.
+" * Handle case where CSExact is also active?
+"   - Possibly fall back on CSExact with unsupported terminals
+"   - Or maybe just do nothing when CSExact is active
+" * Provide a way for colorschemes to check for generic GUI-color support
 
 " XXX Problems
 " - Anything missing in the GUI might be ugly in the terminal, and some things
@@ -203,7 +211,7 @@ function! s:CSExactRefresh()
 
     " Try to infer 'background'. In a terminal Vim will set 'background' based
     " on Normal's ctermbg, but does so very naively and often incorrectly.
-    let normalbg_rgb = matchlist(normal.guibg, '\v^#(\x\x)(\x\x)(\x\x)')
+    let normalbg_rgb = matchlist(normal.guibg, '\v^#(\x\x)(\x\x)(\x\x)$')
     if empty(normalbg_rgb)
         echomsg "Warning: 'background' can't be inferred, might be incorrect"
         let background = "light"
