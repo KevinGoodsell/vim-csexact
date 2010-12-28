@@ -318,11 +318,9 @@ function! s:GetHighlights()
                 " Handle color
                 let norm = s:NormalizeColor(value)
                 let items[key] = norm
-            elseif key =~? '\v^(gui|term|cterm)$'
+            elseif key =~? '\v^(gui|cterm)$'
                 " Handle attributes
                 let items[key] = split(value, ",")
-            else
-                echomsg printf("CSExact: Unknown highlight key '%s'", key)
             endif
         endfor
 
@@ -375,13 +373,8 @@ function! s:TermAttrs(name, items)
 endfunction
 
 function! s:TermColor(name, color, ground)
-    " 'foreground' works in the GUI but it has to be 'fg' in the terminal.
-    if a:color =~? '\v^(fg|foreground)$'
-        let term_color = "fg"
-    elseif a:color =~? '\v^(bg|background)$'
-        let term_color = "bg"
-    elseif a:color =~? '\v^none$'
-        let term_color = "none"
+    if a:color =~ '\v^(fg|bg|none)$'
+        let term_color = a:color
     else
         let term_color = s:GetColor(a:color)
     endif
@@ -410,9 +403,8 @@ function! s:FinishColors()
 endfunction
 
 function! s:GetColor(colorname)
-    let colorname = s:NormalizeColor(a:colorname)
-    if has_key(s:colors, colorname)
-        return s:colors[colorname]
+    if has_key(s:colors, a:colorname)
+        return s:colors[a:colorname]
     endif
 
     if s:next_color >= s:Colors()
@@ -421,8 +413,8 @@ function! s:GetColor(colorname)
 
     let c = s:next_color
     let s:next_color += 1
-    let s:colors[colorname] = c
-    call s:SetColor(c, colorname)
+    let s:colors[a:colorname] = c
+    call s:SetColor(c, a:colorname)
 
     return c
 endfunction
@@ -481,12 +473,16 @@ function! s:SetColor(c, colorname)
 endfunction
 
 function! s:NormalizeColor(color)
-    let color = tolower(a:color)
-    if has_key(s:color_names, color)
-        return s:color_names[color]
-    else
-        return color
+    if a:color =~? '\v^(fg|foreground)$'
+        return "fg"
+    elseif a:color =~? '\v^(bg|background)$'
+        return "bg"
+    elseif a:color =~? '\v^none$'
+        return "none"
     endif
+
+    let lower_color = tolower(a:color)
+    return get(s:color_names, lower_color, lower_color)
 endfunction
 
 " }}}
