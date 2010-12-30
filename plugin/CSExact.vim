@@ -55,6 +55,9 @@
 "   * Proper handling of colors depends on the color scheme actually setting
 "     GUI colors properly. Some color schemes will check for a terminal Vim
 "     session and not set GUI colors in that case.
+"   * Certain highlight groups don't apply in the GUI, and therefore may not
+"     be given appropriate colors in a GUI color scheme. In particular, the
+"     tab line might not match the color scheme.
 "
 " Thanks:
 "
@@ -128,16 +131,15 @@ endif
 
 " TODO
 " * Refactor for multiple terminals, add Screen support (use ESC P)
+"   - ESC P doesn't allow embedded STs, so BEL has to be used to terminate OSC
+"     codes. Possbily a bug, but it's not clear ESC, BEL, etc. are generally
+"     allowed in DCS.
 " * Consider refactoring :hi calls to minimize them. Currently there are
 "   probably something like 5 calls per group.
 " * Handle case where CSExact is also active?
 "   - Possibly fall back on CSExact with unsupported terminals
 "   - Or maybe just do nothing when CSExact is active
 " * Provide a way for colorschemes to check for generic GUI-color support
-
-" XXX Problems
-" - Anything missing in the GUI might be ugly in the terminal, and some things
-"   are terminal-only.
 
 " {{{ RETHROW SUPPORT
 
