@@ -130,7 +130,7 @@ endif
 "   - GNOME Terminal appears to not recognize this.
 
 " TODO
-" * Refactor for multiple terminals, add Screen support (use ESC P)
+" * Add Screen support (use ESC P)
 "   - ESC P doesn't allow embedded STs, so BEL has to be used to terminate OSC
 "     codes. Possbily a bug, but it's not clear ESC, BEL, etc. are generally
 "     allowed in DCS.
@@ -171,6 +171,132 @@ function! s:Throwpoint()
 endfunction
 
 " }}}
+" {{{ TERMINAL ABSTRACTION
+
+function! s:TermFactory()
+    if s:Colors() < 88 || s:Term() !~# '\v^(xterm|gnome|rxvt)'
+        return {}
+    endif
+
+    let tty = s:TtyFactory()
+    if empty(tty)
+        return {}
+    endif
+
+    " Special case: XTerm patch 252 and up supports OSC 104 to reset colors.
+    if s:Term() =~# '\v^xterm'
+        let xterm_patch = str2nr(matchstr($XTERM_VERSION,
+                                        \ '\v^XTerm\(\zs\d+\ze\)'))
+    endif
+
+    if exists("xterm_patch") && xterm_patch >= 252
+        let Reset = function("s:TermResetColors_Osc104")
+        let default_colors = {}
+    else
+        let colors = s:Colors()
+        let Reset = function("s:TermResetColors_Defaults")
+        if colors == 88
+            let default_colors = s:xterm88
+        elseif colors == 256
+            let default_colors = s:xterm256
+        else
+            return {}
+        endif
+    endif
+
+    return {
+        \ "StartColors" : function("s:TermStartColors"),
+        \ "RestartColors" : function("s:RestartColors"),
+        \ "FinishColors" : function("s:TermFinishColors"),
+        \ "AbortColors" : function("s:TermStartColors"),
+        \ "GetColor" : function("s:TermGetColor"),
+        \ "ResetColors" : Reset,
+        \ "tty" : tty,
+        \ "PrivSetColor" : function("s:TermSetColor"),
+        \ "_color_string" : [],
+        \ "_colors" : {},
+        \ "_next_color" : 16,
+        \ "_default_colors" : default_colors,
+    \ }
+endfunction
+
+function! s:TermStartColors() dict
+    let self._color_string = []
+endfunction
+
+function! s:RestartColors() dict
+    let self._next_color = 16
+    let self._colors = {}
+    call self.StartColors()
+endfunction
+
+function! s:TermFinishColors() dict
+    if !empty(self._color_string)
+        call self.tty.SendCode(printf("\033]4%s\007",
+                                    \ join(self._color_string, "")))
+    endif
+endfunction
+
+function! s:TermSetColor(colorindex, colorname) dict
+    let command = printf(";%d;%s", a:colorindex, a:colorname)
+    call add(self._color_string, command)
+endfunction
+
+function! s:TermGetColor(colorname) dict
+    if has_key(self._colors, a:colorname)
+        return self._colors[a:colorname]
+    endif
+
+    if self._next_color >= s:Colors()
+        throw "out of terminal colors"
+    endif
+
+    let c = self._next_color
+    let self._next_color += 1
+    let self._colors[a:colorname] = c
+    call self.PrivSetColor(c, a:colorname)
+
+    return c
+endfunction
+
+function! s:TermResetColors_Defaults() dict
+    call self.StartColors()
+
+    for [cnum, color] in items(self._default_colors)
+        call self.PrivSetColor(cnum, color)
+    endfor
+
+    call self.FinishColors()
+endfunction
+
+function! s:TermResetColors_Osc104() dict
+    call self.tty.SendCode("\033]104\007")
+endfunction
+
+" }}}
+" {{{ TTY ABSTRACTION
+
+function! s:TtyFactory()
+    if filewritable("/dev/tty")
+        return { "SendCode" : function("s:TtySendCode_DevTty") }
+    elseif executable("echo")
+        " XXX Is this version really useful?
+        return { "SendCode" : function("s:TtySendCode_Echo") }
+    else
+        return {}
+    endif
+endfunction
+
+function! s:TtySendCode_DevTty(code)
+    call writefile([a:code], "/dev/tty", "b")
+endfunction
+
+function! s:TtySendCode_Echo(code)
+    exec "silent !echo -n " . shellescape(fnameescape(a:code))
+    redraw!
+endfunction
+
+" }}}
 " {{{ IMPLEMENTATION
 
 function! s:CSExactErrorWrapper(func, ...)
@@ -193,12 +319,8 @@ function! s:Colors()
     return get(g:, "csexact_colors_override", &t_Co)
 endfunction
 
-function! s:Supported()
-    return s:Colors() >= 88 && s:Term() =~# '\v^(xterm|gnome|rxvt)'
-endfunction
-
 function! s:CSExactRefresh()
-    if !s:Supported()
+    if empty(s:term)
         return
     endif
 
@@ -238,7 +360,7 @@ function! s:CSExactRefresh()
       \ [group_names[normal_idx], group_names[0]]
 
     try
-        call s:RestartColors()
+        call s:term.RestartColors()
         " g:colors_name needs to be unlet to prevent Vim from reloading the
         " colorscheme (or unloading it in some cases) when 'background'
         " changes (possibly as a result of the 'Normal' group's ctermbg being
@@ -280,7 +402,7 @@ function! s:CSExactRefresh()
             endfor
         finally
             let g:colors_name = save_colors_name
-            call s:FinishColors()
+            call s:term.FinishColors()
         endtry
     catch
         call s:CSExactReset()
@@ -340,13 +462,17 @@ function! s:GetHighlights()
     return result
 endfunction
 
-function! s:CSExactCheckColorscheme()
-    if exists("g:colors_name")
-        \ && g:colors_name =~ get(g:, "csexact_blacklist", '\v^$')
-        CSExactResetColors
-    else
-        CSExactColors
+function! s:NormalizeColor(color)
+    if a:color =~? '\v^(fg|foreground)$'
+        return "fg"
+    elseif a:color =~? '\v^(bg|background)$'
+        return "bg"
+    elseif a:color =~? '\v^none$'
+        return "none"
     endif
+
+    let lower_color = tolower(a:color)
+    return get(s:color_names, lower_color, lower_color)
 endfunction
 
 function! s:TermAttrs(name, items)
@@ -386,113 +512,29 @@ function! s:TermColor(name, color, ground)
     if a:color =~ '\v^(fg|bg|none)$'
         let term_color = a:color
     else
-        let term_color = s:GetColor(a:color)
+        let term_color = s:term.GetColor(a:color)
     endif
     exec printf("highlight %s cterm%s=%s", a:name, a:ground, term_color)
 endfunction
 
-" }}}
-" {{{ COLOR HANDLING
-
-" Public portion:
-
-function! s:StartColors()
-    let s:color_string = []
-endfunction
-
-function! s:RestartColors()
-    let s:next_color = 16
-    let s:colors = {}
-    call s:StartColors()
-endfunction
-
-function! s:FinishColors()
-    if !empty(s:color_string)
-        call s:SendCode(printf("\033]4%s\007", join(s:color_string, "")))
+function! s:CSExactCheckColorscheme()
+    if exists("g:colors_name")
+        \ && g:colors_name =~ get(g:, "csexact_blacklist", '\v^$')
+        CSExactResetColors
+    else
+        CSExactColors
     endif
-endfunction
-
-function! s:GetColor(colorname)
-    if has_key(s:colors, a:colorname)
-        return s:colors[a:colorname]
-    endif
-
-    if s:next_color >= s:Colors()
-        throw "out of terminal colors"
-    endif
-
-    let c = s:next_color
-    let s:next_color += 1
-    let s:colors[a:colorname] = c
-    call s:SetColor(c, a:colorname)
-
-    return c
 endfunction
 
 function! s:CSExactReset()
-    if !s:Supported()
+    if empty(s:term)
         return
     endif
 
-    " Special case: XTerm patch 252 and up supports OSC 104 to reset colors.
-    if s:Term() =~# '\v^xterm'
-        let xterm_patch = str2nr(matchstr($XTERM_VERSION,
-                                        \ '\v^XTerm\(\zs\d+\ze\)'))
-    endif
+    call s:term.ResetColors()
 
-    if exists("xterm_patch") && xterm_patch >= 252
-        call s:SendCode("\033]104\007")
-    else
-        call s:StartColors()
-
-        if s:Colors() == 88
-            let defaults = s:xterm88
-        elseif s:Colors() == 256
-            let defaults = s:xterm256
-        else
-            " No idea what defaults to use here.
-            let defaults = {}
-        endif
-
-        for [cnum, color] in items(defaults)
-            call s:SetColor(cnum, color)
-        endfor
-
-        call s:FinishColors()
-    endif
-
-    let s:colors = {}
-    let s:next_color = 16
-endfunction
-
-" Internal (non-public) portion:
-
-let s:colors = {} " { 'color_spec' : color_num }
-let s:next_color = 16
-
-function! s:SendCode(code)
-    call writefile([a:code], "/dev/tty", "b")
-endfunction
-
-function! s:SetColor(c, colorname)
-    " The Xterm color-setting command is '\033]4;c;spec\007', where c is the
-    " color number and spec is in a format accepted by XParseColor. This
-    " accepts colors that Vim accepts.
-    let command = printf(';%d;%s', a:c, a:colorname)
-    call add(s:color_string, command)
-endfunction
-
-function! s:NormalizeColor(color)
-    if a:color =~? '\v^(fg|foreground)$'
-        return "fg"
-    elseif a:color =~? '\v^(bg|background)$'
-        return "bg"
-    elseif a:color =~? '\v^none$'
-        return "none"
-    endif
-
-    let lower_color = tolower(a:color)
-    return get(s:color_names, lower_color, lower_color)
+    let s:term._colors = {}
+    let s:term._next_color = 16
 endfunction
 
 " }}}
@@ -501,7 +543,7 @@ endfunction
 augroup CSExact
     autocmd!
     autocmd VimLeave * CSExactResetColors
-    autocmd VimEnter,ColorScheme,TermChanged * call s:CSExactCheckColorscheme()
+    autocmd VimEnter,ColorScheme * call s:CSExactCheckColorscheme()
 augroup END
 
 command! -bar CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
@@ -877,6 +919,8 @@ function! s:ReadRgbTxt()
 endfunction
 
 call extend(s:color_names, s:ReadRgbTxt())
+
+let s:term = s:TermFactory()
 
 " }}}
 
