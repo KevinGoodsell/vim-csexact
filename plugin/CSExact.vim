@@ -617,8 +617,12 @@ augroup CSExact
     autocmd VimEnter,ColorScheme * call s:CSExactCheckColorscheme()
 augroup END
 
-command! -bar CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
-command! -bar CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
+if !exists(":CSExactColors")
+    command! -bar CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
+endif
+if !exists(":CSExactResetColors")
+    command! -bar CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
+endif
 
 " }}}
 " {{{ DATA
