@@ -75,7 +75,8 @@
 " {{{ USAGE
 "
 " Install this file in a plugin/ sub-directory in your runtimepath (typically
-" ~/.vim/plugin, or ~/.vim/bundle/CSExact/ if you use the pathogen plugin).
+" ~/.vim/plugin, or ~/.vim/bundle/CSExact/plugin if you use the pathogen
+" plugin).
 "
 " After installation, the plugin will function automatically via autocommands.
 " You can use explicit commands also, when necessary.
