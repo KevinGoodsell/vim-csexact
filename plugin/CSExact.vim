@@ -58,6 +58,13 @@
 "   * Certain highlight groups don't apply in the GUI, and therefore may not
 "     be given appropriate colors in a GUI color scheme. In particular, the
 "     tab line might not match the color scheme.
+"   * Using an 88-color terminal with GNU Screen presents a problem. Screen
+"     attempts to translate color-change requests in a way that is
+"     incompatible with CSExact. You can work around this by making Screen
+"     think that the host terminal supports 256 colors, with something like
+"     this in .screenrc:
+"
+"       termcapinfo rxvt* Co\#256
 "
 " Thanks:
 "
@@ -130,10 +137,6 @@ endif
 "   - GNOME Terminal appears to not recognize this.
 
 " TODO
-" * Add Screen support (use ESC P)
-"   - ESC P doesn't allow embedded STs, so BEL has to be used to terminate OSC
-"     codes. Possbily a bug, but it's not clear ESC, BEL, etc. are generally
-"     allowed in DCS.
 " * Consider refactoring :hi calls to minimize them. Currently there are
 "   probably something like 5 calls per group.
 " * Handle case where CSExact is also active?
@@ -174,17 +177,41 @@ endfunction
 " {{{ TERMINAL ABSTRACTION
 
 function! s:TermFactory()
-    if s:Colors() < 88 || s:Term() !~# '\v^(xterm|gnome|rxvt)'
+    let term = s:Term()
+
+    if term =~# '\v^screen'
+        let tty = s:TtyFactoryScreen()
+
+        " Figure out host term.
+
+        " Maybe term is screen.host-term.
+        if term =~# '\v^screen\.'
+            let host_term = matchstr(term, '\v^screen\.\zs.*')
+        " Maybe XTERM_VERSION is set.
+        elseif !empty($XTERM_VERSION)
+            let host_term = "xterm"
+        " Maybe COLORTERM is set.
+        elseif !empty($COLORTERM)
+            let host_term = $COLORTERM
+        " Unknown
+        else
+            let host_term = ''
+        endif
+    else
+        let tty = s:TtyFactory()
+        let host_term = term
+    endif
+
+    if s:Colors() < 88 || host_term !~# '\v^(xterm|gnome|rxvt)'
         return {}
     endif
 
-    let tty = s:TtyFactory()
     if empty(tty)
         return {}
     endif
 
     " Special case: XTerm patch 252 and up supports OSC 104 to reset colors.
-    if s:Term() =~# '\v^xterm'
+    if host_term =~# '\v^xterm'
         let xterm_patch = str2nr(matchstr($XTERM_VERSION,
                                         \ '\v^XTerm\(\zs\d+\ze\)'))
     endif
@@ -214,6 +241,7 @@ function! s:TermFactory()
         \ "tty" : tty,
         \ "PrivSetColor" : function("s:TermSetColor"),
         \ "_color_string" : [],
+        \ "_color_string_len" : 0,
         \ "_colors" : {},
         \ "_next_color" : 16,
         \ "_default_colors" : default_colors,
@@ -222,6 +250,7 @@ endfunction
 
 function! s:TermStartColors() dict
     let self._color_string = []
+    let self._color_string_len = 0
 endfunction
 
 function! s:RestartColors() dict
@@ -239,7 +268,14 @@ endfunction
 
 function! s:TermSetColor(colorindex, colorname) dict
     let command = printf(";%d;%s", a:colorindex, a:colorname)
+    " 4 bytes of overhead in the OSC command: ESC ] 4 at the beginning, BEL at
+    " the end.
+    if self._color_string_len + len(command) + 4 > self.tty.code_max
+        call self.FinishColors()
+        call self.StartColors()
+    endif
     call add(self._color_string, command)
+    let self._color_string_len += len(command)
 endfunction
 
 function! s:TermGetColor(colorname) dict
@@ -278,13 +314,19 @@ endfunction
 
 function! s:TtyFactory()
     if filewritable("/dev/tty")
-        return { "SendCode" : function("s:TtySendCode_DevTty") }
+        let SendCode = function("s:TtySendCode_DevTty")
     elseif executable("echo")
         " XXX Is this version really useful?
-        return { "SendCode" : function("s:TtySendCode_Echo") }
+        let SendCode = function("s:TtySendCode_Echo")
     else
         return {}
     endif
+
+    " The max here is arbitrary. I haven't hit a true maximum.
+    return {
+        \ "SendCode" : SendCode,
+        \ "code_max" : 4096,
+    \ }
 endfunction
 
 function! s:TtySendCode_DevTty(code)
@@ -294,6 +336,35 @@ endfunction
 function! s:TtySendCode_Echo(code)
     exec "silent !echo -n " . shellescape(fnameescape(a:code))
     redraw!
+endfunction
+
+function! s:TtyFactoryScreen()
+    let base = s:TtyFactory()
+    if empty(base)
+        return {}
+    endif
+
+    " Screen has a builtin limit of 256 (with one reserved for NUL) for
+    " control strings. See StringChar in ansi.c, and the definition of MAXSTR
+    " in screen.h.
+    " We tag on 4 extra bytes for each code sent to base.
+    let code_max = min([255, base.code_max - 4])
+    return {
+        \ "SendCode" : function("s:TtySendCode_Screen"),
+        \ "code_max" : code_max,
+        \ "_base" : base,
+    \ }
+endfunction
+
+function! s:TtySendCode_Screen(code) dict
+    " Screen's Device Control String (DCS) can be used to pass a command to
+    " the host terminal, but it has limitations. First, it must be shorter
+    " than 256 bytes. Second, there's no way to embed the String Terminator
+    " sequence, ESC backslash. This appears to be a bug in the state machine
+    " in ansi.c. It looks like a double-ESC should add an ESC to the output
+    " without interpreting it, but it stays in the STRESC state afterward, so
+    " it still interprets a following backslash as the end of the DCS.
+    call self._base.SendCode(printf("\033P%s\033\\", a:code))
 endfunction
 
 " }}}
