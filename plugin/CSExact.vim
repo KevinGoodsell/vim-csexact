@@ -111,6 +111,29 @@
 "     This is a pattern describing colorscheme names that should not be
 "     colorized with CSExact.
 "
+"   g:csexact_cursor_reset
+"
+"     This is a terminal control sequence to reset the cursor color. The
+"     reason for this is that there's no reliable way to set the cursor to a
+"     default color. Cursor coloring will only be used if this variable
+"     exists.
+"
+"     There are two typical ways this might be set. For xterm, you can try the
+"     OSC 112 escape sequence, but this is a bit quirky. In general, it seems
+"     to work as expected if you've set your default cursor color via the
+"     cursorColor X resource or the -cr command-line option. OSC 112 can be
+"     used this way:
+"
+"       let g:csexact_cursor_reset = "\033]112\007"
+"
+"     If that doesn't work for you, the alternative is to explicitly set the
+"     cursor color back to whatever value you use as the default. This is done
+"     with OSC 12, and might look like this:
+"
+"       let g:csexact_cursor_reset = "\033]12;white\007
+"
+"     The color specification can be anything XParseColor(3) understands.
+"
 " }}}
 
 if exists("loaded_csexact")
@@ -127,15 +150,6 @@ if has("gui_running") || (!has("gui") && v:version < 703)
     let &cpo = s:save_cpo
     finish
 endif
-
-" NOTES
-" * Can also use \033]12;spec\007 to set cursor color, not sure how to
-"   reset.
-"   - Xterm's \033]112\007 is supposed to reset, but this works in an odd way.
-"     If the cursorColor resource is not explicitly set anywhere, \033]12
-"     changes the value of the default (XtDefaultForeground), so reseting to
-"     the default does nothing.
-"   - GNOME Terminal appears to not recognize this.
 
 " TODO
 " * Reduce use of dict index syntax
@@ -240,6 +254,8 @@ function! s:TermFactory()
         \ "AbortColors" : function("s:TermStartColors"),
         \ "GetColor" : function("s:TermGetColor"),
         \ "ResetColors" : Reset,
+        \ "SetCursor" : function("s:TermSetCursor"),
+        \ "ResetCursor" : function("s:TermResetCursor"),
         \ "tty" : tty,
         \ "PrivSetColor" : function("s:TermSetColor"),
         \ "_color_string" : [],
@@ -309,6 +325,18 @@ endfunction
 
 function! s:TermResetColors_Osc104() dict
     call self.tty.SendCode("\033]104\007")
+endfunction
+
+function! s:TermSetCursor(color) dict
+    if a:color !~ '\v^(fg|bg|none)$'
+        call self.tty.SendCode(printf("\033]12;%s\007", a:color))
+    endif
+endfunction
+
+function! s:TermResetCursor() dict
+    if exists("g:csexact_cursor_reset")
+        call self.tty.SendCode(g:csexact_cursor_reset)
+    endif
 endfunction
 
 " }}}
@@ -469,6 +497,19 @@ function! s:CSExactRefresh()
             let g:colors_name = save_colors_name
             call s:term.FinishColors()
         endtry
+
+        " XXX This is still missing the case where Cursor links to something
+        " else. Might as well handle fg and bg also.
+        " Set cursor color if the color scheme supports it. Otherwise reset to
+        " default.
+        if has_key(g:, "csexact_cursor_reset")
+            if has_key(highlights, "Cursor")
+                \ && has_key(highlights.Cursor, "guibg")
+                call s:term.SetCursor(highlights.Cursor.guibg)
+            else
+                call s:term.ResetCursor()
+            endif
+        endif
     catch
         call s:CSExactReset()
         call s:Rethrow()
@@ -597,6 +638,7 @@ function! s:CSExactReset()
     endif
 
     call s:term.ResetColors()
+    call s:term.ResetCursor()
 
     let s:term._colors = {}
     let s:term._next_color = 16
