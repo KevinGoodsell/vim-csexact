@@ -1,11 +1,11 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2010 Dec 31
+" Last Change: 2011 Jan 1
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
 " {{{ COPYRIGHT & LICENSE
 "
-" Copyright 2010 Kevin Goodsell
+" Copyright 2010, 2011 Kevin Goodsell
 "
 " This program is free software: you can redistribute it and/or modify it under
 " the terms of the GNU General Public License as published by the Free Software
@@ -29,9 +29,10 @@
 "
 " Supported Terminals:
 "
-"   Currently GNOME Terminal, xterm, and rxvt are supported. For all
-"   terminals, at least 88 color support is required. The intent is to support
-"   additional terminals in future releases.
+"   Currently GNOME Terminal, xterm, and rxvt are supported, as well as GNU
+"   Screen using any of those as a host. For all terminals, at least 88 color
+"   support is required. The intent is to support additional terminals in
+"   future releases.
 "
 " Issues:
 "
@@ -137,6 +138,7 @@ endif
 "   - GNOME Terminal appears to not recognize this.
 
 " TODO
+" * Reduce use of dict index syntax
 " * Consider refactoring :hi calls to minimize them. Currently there are
 "   probably something like 5 calls per group.
 " * Handle case where CSExact is also active?
