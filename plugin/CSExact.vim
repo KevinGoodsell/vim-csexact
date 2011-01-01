@@ -315,9 +315,6 @@ endfunction
 function! s:TtyFactory()
     if filewritable("/dev/tty")
         let SendCode = function("s:TtySendCode_DevTty")
-    elseif executable("echo")
-        " XXX Is this version really useful?
-        let SendCode = function("s:TtySendCode_Echo")
     else
         return {}
     endif
@@ -331,11 +328,6 @@ endfunction
 
 function! s:TtySendCode_DevTty(code)
     call writefile([a:code], "/dev/tty", "b")
-endfunction
-
-function! s:TtySendCode_Echo(code)
-    exec "silent !echo -n " . shellescape(fnameescape(a:code))
-    redraw!
 endfunction
 
 function! s:TtyFactoryScreen()
