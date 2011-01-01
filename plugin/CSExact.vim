@@ -498,14 +498,13 @@ function! s:CSExactRefresh()
             call s:term.FinishColors()
         endtry
 
-        " XXX This is still missing the case where Cursor links to something
-        " else. Might as well handle fg and bg also.
         " Set cursor color if the color scheme supports it. Otherwise reset to
         " default.
         if has_key(g:, "csexact_cursor_reset")
-            if has_key(highlights, "Cursor")
-                \ && has_key(highlights.Cursor, "guibg")
-                call s:term.SetCursor(highlights.Cursor.guibg)
+            let color = s:ResolveColor("Cursor", "guibg", highlights)
+
+            if color != ""
+                call s:term.SetCursor(color)
             else
                 call s:term.ResetCursor()
             endif
@@ -579,6 +578,34 @@ function! s:NormalizeColor(color)
 
     let lower_color = tolower(a:color)
     return get(s:color_names, lower_color, lower_color)
+endfunction
+
+function! s:ResolveLinks(groupname, highlights)
+    let groupname = a:groupname
+    let max_levels = 20
+    for i in range(max_levels)
+        let group = get(a:highlights, groupname, {})
+        if has_key(group, "links_to")
+            let groupname = group.links_to
+        else
+            return group
+        endif
+    endfor
+    return {}
+endfunction
+
+function! s:ResolveColor(groupname, key, highlights)
+    let group = s:ResolveLinks(a:groupname, a:highlights)
+    let color = get(group, a:key, "")
+    if color =~ '\v^(fg|bg)$'
+        let norm = get(a:highlights, "Normal", {})
+        if color == "fg"
+            let color = get(norm, "guifg", "")
+        else
+            let color = get(norm, "guibg", "")
+        endif
+    endif
+    return color
 endfunction
 
 function! s:TermAttrs(name, items)
