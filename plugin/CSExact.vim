@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 Jan 1
+" Last Change: 2011 Jan 3
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -152,13 +152,14 @@ if has("gui_running") || (!has("gui") && v:version < 703)
 endif
 
 " TODO
-" * Reduce use of dict index syntax
 " * Consider refactoring :hi calls to minimize them. Currently there are
 "   probably something like 5 calls per group.
 " * Handle case where CSExact is also active?
 "   - Possibly fall back on CSExact with unsupported terminals
 "   - Or maybe just do nothing when CSExact is active
 " * Provide a way for colorschemes to check for generic GUI-color support
+" * peachpuff on xterm does something weird with the cursor. Instead of black,
+"   it uses reverse video.
 
 " {{{ RETHROW SUPPORT
 
@@ -211,7 +212,7 @@ function! s:TermFactory()
             let host_term = $COLORTERM
         " Unknown
         else
-            let host_term = ''
+            let host_term = ""
         endif
     else
         let tty = s:TtyFactory()
@@ -624,19 +625,19 @@ function! s:TermAttrs(name, items)
 
     " Foreground, using guisp or guifg depending on the presence of undercurl
     if undercurl && has_key(a:items, "guisp")
-        call s:TermColor(a:name, a:items["guisp"], "fg")
+        call s:TermColor(a:name, a:items.guisp, "fg")
     elseif has_key(a:items, "guifg")
-        call s:TermColor(a:name, a:items["guifg"], "fg")
+        call s:TermColor(a:name, a:items.guifg, "fg")
     endif
 
     " Background
     if has_key(a:items, "guibg")
-        call s:TermColor(a:name, a:items["guibg"], "bg")
+        call s:TermColor(a:name, a:items.guibg, "bg")
     endif
 
     " Finally set attributes
     if empty(cterm_attrs)
-        let cterm_attrs = ['NONE']
+        let cterm_attrs = ["NONE"]
     endif
     exec printf("highlight %s cterm=%s", a:name, join(cterm_attrs, ","))
 endfunction
