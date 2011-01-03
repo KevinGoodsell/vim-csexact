@@ -152,8 +152,6 @@ if has("gui_running") || (!has("gui") && v:version < 703)
 endif
 
 " TODO
-" * Consider refactoring :hi calls to minimize them. Currently there are
-"   probably something like 5 calls per group.
 " * Handle case where CSExact is also active?
 "   - Possibly fall back on CSExact with unsupported terminals
 "   - Or maybe just do nothing when CSExact is active
