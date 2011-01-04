@@ -152,10 +152,11 @@ if has("gui_running") || (!has("gui") && v:version < 703)
 endif
 
 " TODO
-" * Handle case where CSExact is also active?
-"   - Possibly fall back on CSExact with unsupported terminals
-"   - Or maybe just do nothing when CSExact is active
+" * Handle case where CSApprox is also active?
+"   - Possibly fall back on CSApprox with unsupported terminals
+"   - Or maybe just do nothing when CSApprox is active
 " * Provide a way for colorschemes to check for generic GUI-color support
+" * Add vimhelp doc.
 " * peachpuff on xterm does something weird with the cursor. Instead of black,
 "   it uses reverse video.
 
@@ -649,12 +650,24 @@ function! s:TermColor(name, color, ground)
     exec printf("highlight %s cterm%s=%s", a:name, a:ground, term_color)
 endfunction
 
-function! s:CSExactCheckColorscheme()
+" Implementation of the CSExactColors command
+function! s:CSExactColors()
+    if empty(s:term)
+        echoerr "CSExact not supported"
+        return
+    endif
+
+    call s:CSExactErrorWrapper("s:CSExactRefresh")
+endfunction
+
+" Similar to s:CSExactColors(), but called implicitly for startup and
+" colorscheme changes.
+function! s:CSExactCheck()
     if exists("g:colors_name")
         \ && g:colors_name =~ get(g:, "csexact_blacklist", '\v^$')
         CSExactResetColors
     else
-        CSExactColors
+        call s:CSExactErrorWrapper("s:CSExactRefresh")
     endif
 endfunction
 
@@ -676,11 +689,11 @@ endfunction
 augroup CSExact
     autocmd!
     autocmd VimLeave * CSExactResetColors
-    autocmd VimEnter,ColorScheme * call s:CSExactCheckColorscheme()
+    autocmd ColorScheme * call s:CSExactCheck()
 augroup END
 
 if !exists(":CSExactColors")
-    command! -bar CSExactColors call s:CSExactErrorWrapper("s:CSExactRefresh")
+    command! -bar CSExactColors call s:CSExactColors()
 endif
 if !exists(":CSExactResetColors")
     command! -bar CSExactResetColors call s:CSExactErrorWrapper("s:CSExactReset")
@@ -1060,5 +1073,7 @@ call extend(s:color_names, s:ReadRgbTxt())
 let s:term = s:TermFactory()
 
 " }}}
+
+call s:CSExactCheck()
 
 let &cpo = s:save_cpo
