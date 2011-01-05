@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 Jan 3
+" Last Change: 2011 Jan 5
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -152,9 +152,6 @@ if has("gui_running") || (!has("gui") && v:version < 703)
 endif
 
 " TODO
-" * Handle case where CSApprox is also active?
-"   - Possibly fall back on CSApprox with unsupported terminals
-"   - Or maybe just do nothing when CSApprox is active
 " * Provide a way for colorschemes to check for generic GUI-color support
 " * Add vimhelp doc.
 " * peachpuff on xterm does something weird with the cursor. Instead of black,
@@ -660,14 +657,30 @@ function! s:CSExactColors()
     call s:CSExactErrorWrapper("s:CSExactRefresh")
 endfunction
 
-" Similar to s:CSExactColors(), but called implicitly for startup and
-" colorscheme changes.
+" Similar to s:CSExactColors(), but called for startup and colorscheme changes.
 function! s:CSExactCheck()
-    if exists("g:colors_name")
-        \ && g:colors_name =~ get(g:, "csexact_blacklist", '\v^$')
+    " Remove CSApprox autocmd if it exists. We'll handle the event here.
+    if exists("#CSApprox#ColorScheme")
+        autocmd! CSApprox
+    endif
+
+    if empty(s:term)
+        " CSExact not supported
+        let use_csexact = 0
+    elseif !exists("g:colors_name")
+        \ || g:colors_name =~ get(g:, "csexact_blacklist", '\v^$')
+        " Colorscheme blacklisted (or broken)
         CSExactResetColors
+        let use_csexact = 0
     else
+        let use_csexact = 1
+    endif
+
+    if use_csexact
         call s:CSExactErrorWrapper("s:CSExactRefresh")
+    else
+        " Attempt to invoke CSApprox to handle this case.
+        call s:CallCSApprox()
     endif
 endfunction
 
@@ -681,6 +694,27 @@ function! s:CSExactReset()
 
     let s:term._colors = {}
     let s:term._next_color = 16
+endfunction
+
+" Attempt to find and invoke CSApprox(), which is a script-local function in
+" CSApprox.
+function! s:CallCSApprox()
+    if !exists(":CSApproxSnapshot")
+        " CSApprox not loaded.
+        return
+    endif
+
+    if !exists("s:csapprox_func")
+        redir => functions
+        silent function
+        redir END
+
+        let s:csapprox_func = matchstr(functions, '\v\<SNR\>\d+_CSApprox\ze\(')
+    endif
+
+    if !empty(s:csapprox_func)
+        call call(s:csapprox_func, [])
+    endif
 endfunction
 
 " }}}
