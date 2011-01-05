@@ -152,6 +152,9 @@ if has("gui_running") || (!has("gui") && v:version < 703)
 endif
 
 " TODO
+" * Looks like links for syntax items are getting reset to defaults. See
+"   adrian's Boolean for example.
+" * Handle the case where g:colors_name is not set.
 " * Provide a way for colorschemes to check for generic GUI-color support
 " * Add vimhelp doc.
 " * peachpuff on xterm does something weird with the cursor. Instead of black,
