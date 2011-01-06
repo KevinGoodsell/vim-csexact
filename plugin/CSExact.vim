@@ -154,7 +154,6 @@ endif
 " TODO
 " * Looks like links for syntax items are getting reset to defaults. See
 "   adrian's Boolean for example.
-" * Handle the case where g:colors_name is not set.
 " * Provide a way for colorschemes to check for generic GUI-color support
 " * Add vimhelp doc.
 " * peachpuff on xterm does something weird with the cursor. Instead of black,
@@ -459,8 +458,8 @@ function! s:CSExactRefresh()
         " changes (possibly as a result of the 'Normal' group's ctermbg being
         " set). See options.c did_set_string_option's handling of
         " 'background'.
-        let save_colors_name = g:colors_name
-        unlet g:colors_name
+        let save_colors_name = get(g:, "colors_name", "")
+        unlet! g:colors_name
         try
             for name in group_names
                 " Some items aren't used in the terminal, so don't waste
@@ -494,7 +493,9 @@ function! s:CSExactRefresh()
                     \ get(items, "guisp", "NONE"))
             endfor
         finally
-            let g:colors_name = save_colors_name
+            if !empty(save_colors_name)
+                let g:colors_name = save_colors_name
+            endif
             call s:term.FinishColors()
         endtry
 
@@ -670,9 +671,9 @@ function! s:CSExactCheck()
     if empty(s:term)
         " CSExact not supported
         let use_csexact = 0
-    elseif !exists("g:colors_name")
-        \ || g:colors_name =~ get(g:, "csexact_blacklist", '\v^$')
-        " Colorscheme blacklisted (or broken)
+    elseif get(g:, "colors_name", "NOCOLORSCHEME") =~
+        \ get(g:, "csexact_blacklist", '\v^$')
+        " Colorscheme blacklisted
         CSExactResetColors
         let use_csexact = 0
     else
