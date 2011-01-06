@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 Jan 5
+" Last Change: 2011 Jan 6
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -141,15 +141,14 @@ if exists("loaded_csexact")
 endif
 let loaded_csexact = 1
 
-let s:save_cpo = &cpo
-set cpo&vim
-
 " Not useful in the GUI, and doesn't work if Vim was built without GUI support
 " prior to version 7.3.
 if has("gui_running") || (!has("gui") && v:version < 703)
-    let &cpo = s:save_cpo
     finish
 endif
+
+let s:save_cpo = &cpo
+set cpo&vim
 
 " TODO
 " * Looks like links for syntax items are getting reset to defaults. See
