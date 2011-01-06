@@ -151,8 +151,6 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 " TODO
-" * Looks like links for syntax items are getting reset to defaults. See
-"   adrian's Boolean for example.
 " * Provide a way for colorschemes to check for generic GUI-color support
 " * Add vimhelp doc.
 " * peachpuff on xterm does something weird with the cursor. Instead of black,
@@ -471,6 +469,7 @@ function! s:CSExactRefresh()
                 let items = highlights[name]
 
                 if has_key(items, "links_to")
+                    exec printf("highlight! link %s %s", name, items.links_to)
                     continue
                 endif
 
