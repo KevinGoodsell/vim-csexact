@@ -419,15 +419,10 @@ function! s:CSExactRefresh()
     let highlights = s:GetHighlights()
     let normal = get(highlights, "Normal", {})
 
-    " Missing guifg or guibg breaks 'fg' and 'bg' pseudo-colors.
-    " XXX Does it really make sense to give up?
-    if !(has_key(normal, "guifg") && has_key(normal, "guibg"))
-        throw "Normal highlight group missing or incomplete"
-    endif
-
     " Try to infer 'background'. In a terminal Vim will set 'background' based
     " on Normal's ctermbg, but does so very naively and often incorrectly.
-    let normalbg_rgb = matchlist(normal.guibg, '\v^#(\x\x)(\x\x)(\x\x)$')
+    let normalbg_rgb = matchlist(get(normal, "guibg", ""),
+                               \ '\v^#(\x\x)(\x\x)(\x\x)$')
     if empty(normalbg_rgb)
         echomsg "Warning: 'background' can't be inferred, might be incorrect"
         let background = "light"
@@ -443,6 +438,12 @@ function! s:CSExactRefresh()
             let background = "light"
         endif
     endif
+
+    " Override normal color setting. "none" isn't a color, "fg" and "bg" are
+    " not always available.
+    let color_overrides = {"none" : "none"}
+    let color_overrides.fg = has_key(normal, "guifg") ? "fg" : "none"
+    let color_overrides.bg = has_key(normal, "guibg") ? "bg" : "none"
 
     " 'Normal' needs to be first so 'fg' and 'bg' are available.
     let group_names = keys(highlights)
@@ -474,7 +475,7 @@ function! s:CSExactRefresh()
                     continue
                 endif
 
-                call s:TermAttrs(name, items)
+                call s:TermAttrs(name, items, color_overrides)
 
                 " The first time through (after setting 'Normal'), fix
                 " 'background'. Vim sets it incorrectly when Normal's ctermbg
@@ -609,7 +610,7 @@ function! s:ResolveColor(groupname, key, highlights)
     return color
 endfunction
 
-function! s:TermAttrs(name, items)
+function! s:TermAttrs(name, items, color_overrides)
     exec printf("highlight %s cterm=NONE ctermfg=NONE ctermbg=NONE", a:name)
 
     " Retrieve, but don't set attributes
@@ -625,14 +626,14 @@ function! s:TermAttrs(name, items)
 
     " Foreground, using guisp or guifg depending on the presence of undercurl
     if undercurl && has_key(a:items, "guisp")
-        call s:TermColor(a:name, a:items.guisp, "fg")
+        call s:TermColor(a:name, a:items.guisp, "fg", a:color_overrides)
     elseif has_key(a:items, "guifg")
-        call s:TermColor(a:name, a:items.guifg, "fg")
+        call s:TermColor(a:name, a:items.guifg, "fg", a:color_overrides)
     endif
 
     " Background
     if has_key(a:items, "guibg")
-        call s:TermColor(a:name, a:items.guibg, "bg")
+        call s:TermColor(a:name, a:items.guibg, "bg", a:color_overrides)
     endif
 
     " Finally set attributes
@@ -642,9 +643,9 @@ function! s:TermAttrs(name, items)
     exec printf("highlight %s cterm=%s", a:name, join(cterm_attrs, ","))
 endfunction
 
-function! s:TermColor(name, color, ground)
-    if a:color =~ '\v^(fg|bg|none)$'
-        let term_color = a:color
+function! s:TermColor(name, color, ground, color_overrides)
+    if has_key(a:color_overrides, a:color)
+        let term_color = a:color_overrides[a:color]
     else
         let term_color = s:term.GetColor(a:color)
     endif
