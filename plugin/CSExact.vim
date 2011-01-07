@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 Jan 6
+" Last Change: 2011 Jan 7
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -43,36 +43,6 @@ set cpo&vim
 " * peachpuff on xterm does something weird with the cursor. Instead of black,
 "   it uses reverse video.
 
-" {{{ RETHROW SUPPORT
-
-let s:rethrow_pattern = '\v\<SNR\>\d+_Rethrow>'
-
-function! s:Rethrow()
-    let except = v:exception
-
-    " Save source info
-    if !exists("s:rethrow_throwpoint") || v:throwpoint !~# s:rethrow_pattern
-        let s:rethrow_throwpoint = v:throwpoint
-    endif
-
-    " Can't directly throw Vim exceptions (see :h try-echoerr), so use echoerr
-    " instead, but strip off an existing echoerr prefix first.
-    if except =~# '\v^Vim'
-        echoerr substitute(except, '\v^Vim\(echoerr\):', "", "")
-    endif
-
-    throw except
-endfunction
-
-function! s:Throwpoint()
-    if v:throwpoint =~# s:rethrow_pattern
-        return s:rethrow_throwpoint
-    else
-        return v:throwpoint
-    endif
-endfunction
-
-" }}}
 " {{{ TERMINAL ABSTRACTION
 
 function! s:TermFactory()
@@ -281,7 +251,7 @@ function! s:CSExactErrorWrapper(func, ...)
     catch
         redraw
         echohl ErrorMsg
-        echomsg "Error from: " . s:Throwpoint()
+        echomsg "Error from: " . rethrow#Throwpoint()
         echomsg v:exception
         echohl NONE
     endtry
@@ -398,7 +368,7 @@ function! s:CSExactRefresh()
         endif
     catch
         call s:CSExactReset()
-        call s:Rethrow()
+        call rethrow#Rethrow()
     endtry
 endfunction
 
