@@ -7,132 +7,20 @@
 "
 " Copyright 2010, 2011 Kevin Goodsell
 "
-" This program is free software: you can redistribute it and/or modify it under
+" This file is part of CSExact.
+"
+" CSExact is free software: you can redistribute it and/or modify it under
 " the terms of the GNU General Public License as published by the Free Software
 " Foundation, either version 3 of the License, or (at your option) any later
 " version.
 "
-" This program is distributed in the hope that it will be useful, but WITHOUT
+" CSExact is distributed in the hope that it will be useful, but WITHOUT
 " ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
 " FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
 " details.
 "
 " You should have received a copy of the GNU General Public License along with
-" this program.  If not, see <http://www.gnu.org/licenses/>.
-"
-" }}}
-" {{{ NOTES
-"
-" This plugin allows the use of GUI (GVim) color schemes in (some) terminals.
-" This is done by using terminal magic to modify the terminal's color palette
-" on startup and each time a color scheme is loaded.
-"
-" Supported Terminals:
-"
-"   Currently GNOME Terminal, xterm, and rxvt are supported, as well as GNU
-"   Screen using any of those as a host. For all terminals, at least 88 color
-"   support is required. The intent is to support additional terminals in
-"   future releases.
-"
-" Issues:
-"
-"   There are some inherent issues in this method of setting Vim's colors.
-"
-"   * It obviously only works with terminals that support changing the palette.
-"   * The colors are modified in the terminal itself. This will affect other
-"     terminal applications. The "system colors" (colors 0 to 15) are never
-"     changed, which helps minimize this problem.
-"   * The terminal colors are reset when Vim exits, but this can create other
-"     problems:
-"     - If a running Vim is suspended, and a new instance is started then
-"       terminated, the colors will be reset by the second instance. When the
-"       first instance is resumed, the colors will be wrong.
-"     - There's no reliable way to reset the colors, so in most cases they
-"       will simply be set to pre-defined defaults. These defaults may not
-"       match the user's settings.
-"   * If Vim exits abnormally, and the VimLeave autocommands are not executed,
-"     the colors will not be restored. In particular, when the user moves to a
-"     GUI with :gvim or :gui, the terminal colors are not restored.
-"   * Proper handling of colors depends on the color scheme actually setting
-"     GUI colors properly. Some color schemes will check for a terminal Vim
-"     session and not set GUI colors in that case.
-"   * Certain highlight groups don't apply in the GUI, and therefore may not
-"     be given appropriate colors in a GUI color scheme. In particular, the
-"     tab line might not match the color scheme.
-"   * Using an 88-color terminal with GNU Screen presents a problem. Screen
-"     attempts to translate color-change requests in a way that is
-"     incompatible with CSExact. You can work around this by making Screen
-"     think that the host terminal supports 256 colors, with something like
-"     this in .screenrc:
-"
-"       termcapinfo rxvt* Co\#256
-"
-" Thanks:
-"
-"   Special thanks to Matt Wozniski (godlygeek on github) for writing
-"   CSApprox, the primary inspiration for this plugin.
-"
-" }}}
-" {{{ USAGE
-"
-" Install this file in a plugin/ sub-directory in your runtimepath (typically
-" ~/.vim/plugin, or ~/.vim/bundle/CSExact/plugin if you use the pathogen
-" plugin).
-"
-" After installation, the plugin will function automatically via autocommands.
-" You can use explicit commands also, when necessary.
-"
-" Commands:
-"
-"   :CSExactColors
-"
-"     Sets terminal palette and Vim colors based on the GUI colors of the
-"     current color scheme. This can be run at any time to update the colors,
-"     but is usually run automatically. Running this explicitly can repair
-"     incorrect colors caused by reseting the palette.
-"
-"   :CSExactResetColors
-"
-"     Resets the terminal palette. This is invoked automatically on exit, and
-"     usually shouldn't be needed.
-"
-" Configuration Options:
-"
-"   g:csexact_term_override
-"
-"     Set the terminal name. Uses 'term' setting if unset.
-"
-"   g:csexact_colors_override
-"
-"     Set the number of terminal colors. Uses 't_Co' if unset.
-"
-"   g:csexact_blacklist
-"
-"     This is a pattern describing colorscheme names that should not be
-"     colorized with CSExact.
-"
-"   g:csexact_cursor_reset
-"
-"     This is a terminal control sequence to reset the cursor color. The
-"     reason for this is that there's no reliable way to set the cursor to a
-"     default color. Cursor coloring will only be used if this variable
-"     exists.
-"
-"     There are two typical ways this might be set. For xterm, you can try the
-"     OSC 112 escape sequence, but this is a bit quirky. In general, it seems
-"     to work as expected if you've set your default cursor color via the
-"     cursorColor X resource or the -cr command-line option. OSC 112 can be
-"     used this way:
-"
-"       let g:csexact_cursor_reset = "\033]112\007"
-"
-"     If that doesn't work for you, the alternative is to explicitly set the
-"     cursor color back to whatever value you use as the default. This is done
-"     with OSC 12, and might look like this:
-"
-"       let g:csexact_cursor_reset = "\033]12;white\007
-"
-"     The color specification can be anything XParseColor(3) understands.
+" CSExact.  If not, see <http://www.gnu.org/licenses/>.
 "
 " }}}
 
@@ -152,7 +40,6 @@ set cpo&vim
 
 " TODO
 " * Provide a way for colorschemes to check for generic GUI-color support
-" * Add vimhelp doc.
 " * peachpuff on xterm does something weird with the cursor. Instead of black,
 "   it uses reverse video.
 

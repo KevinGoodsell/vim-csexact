@@ -1,0 +1,181 @@
+*CSExact.txt*    Use GUI Color Schemes in Supported Terminals
+
+Introduction ~
+|csexact-intro|     Introduction
+|csexact-support|   Supported Terminal
+|csexact-csapprox|  Comparison to CSApprox
+
+Usage ~
+|csexact-install|   Installation
+|csexact-commands|  Command Reference
+|csexact-config|    Configuration Options
+
+Additional ~
+|csexact-issues|    Limitations and Bugs
+|csexact-license|   Copyright and License
+|csexact-thanks|    Thanks
+
+==============================================================================
+CSExact Introduction                                           *csexact-intro*
+
+This plugin allows the use of GUI (GVim) color schemes in (some) terminals.
+This is done by using terminal magic to modify the terminal's color palette
+on startup and each time a color scheme is loaded.
+
+
+Supported Terminals                                          *csexact-support*
+
+Currently GNOME Terminal, xterm, and rxvt are supported, as well as GNU Screen
+using any of those as a host. For all terminals, at least 88 color support is
+required. The intent is to support additional terminals in future releases.
+
+
+Comparison to CSApprox                                      *csexact-csapprox*
+
+CSApprox is a popular plugin with a similar purpose, but with a different
+approach. CSApprox uses the terminal's existing color palette and locates
+the colors that most closely match those from the color scheme, while CSExact
+modifies the color palette.
+
+The advantages of CSApprox are that it works in many more terminals, and that
+it doesn't make changes to the terminal setup that can affect other
+applications (see |csexact-issues|).
+
+The advantages of CSExact are that it matches the GUI colors exactly which
+gives significantly better results in some cases, it's somewhat faster when
+switching color schemes and starting up, it works around some bugs that
+CSApprox doesn't currently (e.g., sets 'background' correctly), and it can
+also match the GUI color scheme's text cursor color.
+
+You don't have to choose one or the other, however. CSExact detects when
+CSApprox is also loaded and makes an effort to work with it. If the current
+system and terminal configuration isn't supported by CSExact, CSApprox will be
+called to handle the case. CSApprox is also called to handle color schemes
+that are blacklisted for CSExact (see |csexact_blacklist|).
+
+==============================================================================
+Installation                                                 *csexact-install*
+
+The folders in the CSExact distribution (doc/, plugin/, etc.) should be placed
+in one of the folders in 'runtimepath'. This is typically $HOME/.vim/, but if
+you use the pathogen plugin (which is recommended) it may be, e.g.,
+$HOME/.vim/bundle/csexact/.
+
+
+Command Reference                                           *csexact-commands*
+
+  :CSExactColors                                              *:CSExactColors*
+
+    Sets terminal palette and Vim colors based on the GUI colors of the
+    current color scheme. This can be run at any time to update the colors,
+    but is usually run automatically. Running this explicitly can repair
+    incorrect colors caused by reseting the palette.
+
+  :CSExactResetColors                                    *:CSExactResetColors*
+
+    Resets the terminal palette. This is invoked automatically on exit, and
+    usually shouldn't be needed.
+
+
+Configuration Options                                         *csexact-config*
+
+  *g:csexact_term_override*
+
+    Set the terminal name. Uses 'term' setting if unset.
+
+  *g:csexact_colors_override*
+
+    Set the number of terminal colors. Uses 't_Co' if unset.
+
+  *g:csexact_blacklist*
+
+    This is a pattern describing colorscheme names that should not be
+    colorized with CSExact.
+
+  *g:csexact_cursor_reset*
+
+    This is a terminal control sequence to reset the cursor color. The reason
+    for this is that there's no reliable way to set the cursor to a default
+    color. Cursor coloring will only be used if this variable exists.
+
+    There are two typical ways this might be set. For xterm, you can try the
+    OSC 112 escape sequence, but this is a bit quirky. In general, it seems to
+    work as expected if you've set your default cursor color via the
+    cursorColor X resource or the -cr command-line option. OSC 112 can be used
+    this way: >
+
+      let g:csexact_cursor_reset = "\033]112\007"
+
+<   If that doesn't work for you, the alternative is to explicitly set the
+    cursor color back to whatever value you use as the default. This is done
+    with OSC 12, and might look like this: >
+
+      let g:csexact_cursor_reset = "\033]12;white\007
+
+<   The color specification can be anything XParseColor(3) understands.
+
+==============================================================================
+Limitations and Bugs                                          *csexact-issues*
+
+  * CSExact obviously only works with terminals that support changing the
+    palette.
+
+  * The colors are modified in the terminal itself. This will affect other
+    terminal applications. The "system colors" (colors 0 to 15) are never
+    changed, which helps minimize this problem.
+
+  * The terminal colors are reset when Vim exits, but this can create other
+    problems:
+
+    - If a running Vim is suspended, and a new instance is started then
+      terminated, the colors will be reset by the second instance. When the
+      first instance is resumed, the colors will be wrong.
+
+    - There's no reliable way to reset the colors, so in most cases they
+      will simply be set to pre-defined defaults. These defaults may not
+      match the user's settings.
+
+  * If Vim exits abnormally, and the VimLeave autocommands are not executed,
+    the colors will not be restored. In particular, when the user moves to a
+    GUI with :gvim or :gui, the terminal colors are not restored.
+
+  * Proper handling of colors depends on the color scheme actually setting
+    GUI colors properly. Some color schemes will check for a terminal Vim
+    session and not set GUI colors in that case.
+
+  * Certain highlight groups don't apply in the GUI, and therefore may not
+    be given appropriate colors in a GUI color scheme. In particular, the
+    tab line might not match the color scheme.
+
+  * Using an 88-color terminal with GNU Screen presents a problem. Screen
+    attempts to translate color-change requests in a way that is
+    incompatible with CSExact. You can work around this by making Screen
+    think that the host terminal supports 256 colors, with something like
+    this in .screenrc: >
+
+      termcapinfo rxvt* Co\#256
+
+
+Copyright and License                                        *csexact-license*
+
+Copyright 2010, 2011 Kevin Goodsell
+
+This file is part of CSExact.
+
+CSExact is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+CSExact is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+CSExact.  If not, see <http://www.gnu.org/licenses/>.
+
+
+Thanks                                                        *csexact-thanks*
+
+Special thanks to Matt Wozniski (godlygeek on github) for writing CSApprox,
+the primary inspiration for this plugin.
