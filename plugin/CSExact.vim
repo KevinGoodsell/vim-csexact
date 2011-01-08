@@ -406,13 +406,13 @@ function! s:GetHighlights()
 
         " Key-Value items
         for kv in split(item_string, '\v \ze\w+\=')
-            let [key, value] = matchlist(kv, '\v^(\w+)\=(.*)$')[1:2]
+            let [key, value] = matchlist(kv, '\v(\w+)\=(.*)')[1:2]
 
-            if key =~? '\v(fg|bg|sp)$'
+            if key =~ '\v(fg|bg|sp)$'
                 " Handle color
                 let norm = s:NormalizeColor(value)
                 let items[key] = norm
-            elseif key =~? '\v^(gui|cterm)$'
+            elseif key =~ '\v^(gui|cterm)$'
                 " Handle attributes
                 let items[key] = split(value, ",")
             endif
@@ -425,11 +425,11 @@ function! s:GetHighlights()
 endfunction
 
 function! s:NormalizeColor(color)
-    if a:color =~? '\v^(fg|foreground)$'
-        return "fg"
-    elseif a:color =~? '\v^(bg|background)$'
+    if a:color == "bg" || a:color == "background"
         return "bg"
-    elseif a:color =~? '\v^none$'
+    elseif a:color == "fg" || a:color == "foreground"
+        return "fg"
+    elseif a:color == "none"
         return "none"
     endif
 
