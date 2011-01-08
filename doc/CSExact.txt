@@ -51,7 +51,7 @@ You don't have to choose one or the other, however. CSExact detects when
 CSApprox is also loaded and makes an effort to work with it. If the current
 system and terminal configuration isn't supported by CSExact, CSApprox will be
 called to handle the case. CSApprox is also called to handle color schemes
-that are blacklisted for CSExact (see |csexact_blacklist|).
+that are blacklisted for CSExact (see |g:csexact_blacklist|).
 
 ==============================================================================
 Installation                                                 *csexact-install*
@@ -81,7 +81,19 @@ Configuration Options                                         *csexact-config*
 
   *g:csexact_term_override*
 
-    Set the terminal name. Uses 'term' setting if unset.
+    Set the terminal name. Uses 'term' setting if unset. This is useful if
+    your terminal supports color palette changing, but isn't recognized by
+    CSExact. For example, if your terminal is xterm-compatible you might set
+    this to "xterm".
+
+    Note: You should make sure your $TERM environment variable and Vim's
+    'term' setting accurately reflect the actual terminal you are using before
+    changing this.
+
+    If you use GNU Screen with a supported host terminal, but CSExact doesn't
+    recognize the host terminal, you can set this to something like
+    "screen.xterm" to force CSExact to assume the terminal is Screen running
+    on top of xterm.
 
   *g:csexact_colors_override*
 
