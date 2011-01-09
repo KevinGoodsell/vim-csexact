@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 Jan 7
+" Last Change: 2011 Jan 9
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -71,7 +71,7 @@ function! s:TermFactory()
         let host_term = term
     endif
 
-    if s:Colors() < 88 || host_term !~# '\v^(xterm|gnome|rxvt)'
+    if s:Colors() < 88 || host_term !~# '\v^(xterm|gnome|xfce|rxvt)'
         return {}
     endif
 
