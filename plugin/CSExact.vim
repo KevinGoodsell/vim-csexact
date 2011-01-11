@@ -392,6 +392,7 @@ function! s:GetHighlights()
 
         " Cleared?
         if item_string == "cleared"
+            let result[name] = {}
             continue
         endif
 
