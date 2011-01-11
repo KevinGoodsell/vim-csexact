@@ -39,7 +39,6 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 " TODO
-" * Provide a way for colorschemes to check for generic GUI-color support
 " * peachpuff on xterm does something weird with the cursor. Instead of black,
 "   it uses reverse video.
 
@@ -470,7 +469,7 @@ function! s:TermAttrs(name, items, color_overrides)
 
     " Retrieve, but don't set attributes
     let attrs = get(a:items, "gui", [])
-    let supported_attr = '\v^(bold|underline|reverse)$'
+    let supported_attr = '\v^(bold|underline|reverse|standout)$'
     let cterm_attrs = filter(copy(attrs), "v:val =~ supported_attr")
 
     " Use underline to replace undercurl
