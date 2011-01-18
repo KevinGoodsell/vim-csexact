@@ -271,11 +271,20 @@ function! s:CSExactRefresh()
 
     let highlights = s:GetHighlights()
     let normal = get(highlights, "Normal", {})
+    " Use defaults if no colors were given
+    if !has_key(normal, "guifg")
+        let normal.guifg = s:NormalizeColor(
+            \ get(g:, "csexact_fg_default", "#000000"))
+    endif
+    if !has_key(normal, "guibg")
+        let normal.guibg = s:NormalizeColor(
+            \ get(g:, "csexact_bg_default", "#ffffff"))
+    endif
+    let highlights.Normal = normal
 
     " Try to infer 'background'. In a terminal Vim will set 'background' based
     " on Normal's ctermbg, but does so very naively and often incorrectly.
-    let normalbg_rgb = matchlist(get(normal, "guibg", ""),
-                               \ '\v^#(\x\x)(\x\x)(\x\x)$')
+    let normalbg_rgb = matchlist(normal.guibg, '\v^#(\x\x)(\x\x)(\x\x)$')
     if empty(normalbg_rgb)
         echomsg "Warning: 'background' can't be inferred, might be incorrect"
         let background = "light"
@@ -295,8 +304,8 @@ function! s:CSExactRefresh()
     " Override normal color setting. "none" isn't a color, "fg" and "bg" are
     " not always available.
     let color_overrides = {"none" : "none"}
-    let color_overrides.fg = has_key(normal, "guifg") ? "fg" : "none"
-    let color_overrides.bg = has_key(normal, "guibg") ? "bg" : "none"
+    let color_overrides.fg = normal.guifg == "none" ? "none" : "fg"
+    let color_overrides.bg = normal.guibg == "none" ? "none" : "bg"
 
     " 'Normal' needs to be first so 'fg' and 'bg' are available.
     let group_names = keys(highlights)
@@ -425,15 +434,16 @@ function! s:GetHighlights()
 endfunction
 
 function! s:NormalizeColor(color)
-    if a:color == "bg" || a:color == "background"
+    let lower_color = tolower(a:color)
+
+    if lower_color == "bg" || lower_color == "background"
         return "bg"
-    elseif a:color == "fg" || a:color == "foreground"
+    elseif lower_color == "fg" || lower_color == "foreground"
         return "fg"
-    elseif a:color == "none"
+    elseif lower_color == "none"
         return "none"
     endif
 
-    let lower_color = tolower(a:color)
     return get(g:csexactdata#color_names, lower_color, lower_color)
 endfunction
 

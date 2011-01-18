@@ -128,6 +128,20 @@ Configuration Options                                         *csexact-config*
 
 <   The color specification can be anything XParseColor(3) understands.
 
+  *g:csexact_fg_default*
+  *g:csexact_bg_default*
+
+    These can be used to set default foreground and background colors for
+    color schemes that don't explicitly set them. The value can be a color
+    name or a hexadecimal color using the format #rrggbb. If not specified,
+    white is used for the background and black for the foreground.
+
+    The value "none" can also be used to leave the default terminal colors,
+    which allows the background transparency feature of terminals to work in
+    Vim. Keep in mind that these options are only used when the color scheme
+    doesn't already supply the foreground or background color, so you may have
+    to additionally modify the color scheme to get transparency.
+
 ==============================================================================
 Limitations and Bugs                                          *csexact-issues*
 
