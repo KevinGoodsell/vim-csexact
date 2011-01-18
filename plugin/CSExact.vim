@@ -594,6 +594,9 @@ augroup CSExact
     autocmd!
     autocmd VimLeave * CSExactResetColors
     autocmd ColorScheme * call s:CSExactCheck()
+    " Unfortunately we can't reset the colors before going into the GUI, but
+    " remove the autocmds since they are meaningless (and broken) in the GUI.
+    autocmd GUIEnter * au! CSExact
 augroup END
 
 if !exists(":CSExactColors")
