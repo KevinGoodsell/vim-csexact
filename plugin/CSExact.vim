@@ -157,7 +157,15 @@ function! s:TermGetColor(colorname) dict
         throw "out of terminal colors"
     endif
 
-    let c = self._next_color
+    " The color number is tweaked a little so that the sequence of colors ends
+    " up being (t_Co-1), 16, 17, 18.... The "Normal" group will usually get
+    " assigned the first two, and therefore still be readable when colors get
+    " reset (otherwise the foreground and background would use adjacent color
+    " numbers and be very difficult to distinguish).
+    let c = self._next_color - 1
+    if c == 15
+        let c = s:Colors() - 1
+    endif
     let self._next_color += 1
     let self._colors[a:colorname] = c
     call self.PrivSetColor(c, a:colorname)
