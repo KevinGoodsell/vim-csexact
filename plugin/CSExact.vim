@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 Jan 9
+" Last Change: 2011 Jan 18
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
