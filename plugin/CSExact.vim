@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 Jan 18
+" Last Change: 2011 Jan 19
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -37,10 +37,6 @@ endif
 
 let s:save_cpo = &cpo
 set cpo&vim
-
-" TODO
-" * peachpuff on xterm does something weird with the cursor. Instead of black,
-"   it uses reverse video.
 
 " {{{ TERMINAL ABSTRACTION
 
