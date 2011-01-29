@@ -142,6 +142,16 @@ Configuration Options                                         *csexact-config*
     doesn't already supply the foreground or background color, so you may have
     to additionally modify the color scheme to get transparency.
 
+  *g:csexact_rgbtxt*
+
+    CSExact uses the rgb.txt file to translate color names. It will check for
+    this file in a few different locations, but if it's not in any of them you
+    can set this variable to a path where the file can be found. If necessary
+    you can download a copy of the file from various places online, including
+    the Vim source repository:
+
+      http://vim.googlecode.com/hg/runtime/rgb.txt
+
 ==============================================================================
 Limitations and Bugs                                          *csexact-issues*
 

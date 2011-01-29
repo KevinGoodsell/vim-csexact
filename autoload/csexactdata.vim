@@ -1,5 +1,5 @@
 " Data for CSExact.
-" Last Change: 2011 Jan 7
+" Last Change: 2011 Jan 29
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -378,8 +378,29 @@ let csexactdata#xterm88 = {
     \ 87 : "#e7e7e7",
 \ }
 
+let s:rgbtxt_locations = [
+    \ $VIMRUNTIME . "/rgb.txt",
+    \ "/usr/share/X11/rgb.txt",
+    \ "/usr/X11R6/lib/X11/rgb.txt",
+    \ "c:/cygwin/usr/X11R6/lib/X11/rgb.txt",
+\ ]
+
+function! s:FindRgbTxt()
+    if exists("g:csexact_rgbtxt")
+        return g:csexact_rgbtxt
+    endif
+
+    for path in s:rgbtxt_locations
+        if filereadable(path)
+            return path
+        endif
+    endfor
+
+    throw "no rgb.txt found, please set g:csexact_rgbtxt"
+endfunction
+
 function! s:ReadRgbTxt()
-    let lines = readfile($VIMRUNTIME . "/rgb.txt")
+    let lines = readfile(s:FindRgbTxt())
 
     let colors = {}
     for line in lines
