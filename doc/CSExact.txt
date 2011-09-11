@@ -26,10 +26,11 @@ on startup and each time a color scheme is loaded.
 Supported Terminals                                          *csexact-support*
 
 Currently GNOME Terminal, Xfce Terminal, xterm, and rxvt are supported, as
-well as GNU Screen using any of those as a host. (Other terminals based on the
-VTE widget that GNOME Terminal and Xfce Terminal use will probably also work
-with |g:csexact_term_override|.) For all terminals, at least 88 color support
-is required. The intent is to support additional terminals in future releases.
+well as GNU Screen or tmux using any of those as a host. (Other terminals
+based on the VTE widget that GNOME Terminal and Xfce Terminal use will
+probably also work with |g:csexact_term_override|.) For all terminals, at
+least 88 color support is required. The intent is to support additional
+terminals in future releases.
 
 
 Comparison to CSApprox                                      *csexact-csapprox*
@@ -95,7 +96,7 @@ Configuration Options                                         *csexact-config*
     If you use GNU Screen with a supported host terminal, but CSExact doesn't
     recognize the host terminal, you can set this to something like
     "screen.xterm" to force CSExact to assume the terminal is Screen running
-    on top of xterm.
+    on top of xterm. Ditto for tmux.
 
   *g:csexact_colors_override*
 

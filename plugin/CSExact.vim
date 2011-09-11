@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 Jan 19
+" Last Change: 2011 September 11
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -43,14 +43,18 @@ set cpo&vim
 function! s:TermFactory()
     let term = s:Term()
 
-    if term =~# '\v^screen'
-        let tty = s:TtyFactoryScreen()
+    if term =~# '\v^(screen|tmux)'
+        if term =~# '\v^tmux' || exists("$TMUX")
+            let tty = s:TtyFactoryTmux()
+        else
+            let tty = s:TtyFactoryScreen()
+        endif
 
         " Figure out host term.
 
-        " Maybe term is screen.host-term.
-        if term =~# '\v^screen\.'
-            let host_term = matchstr(term, '\v^screen\.\zs.*')
+        " Maybe term is multiplexer.host-term.
+        if term =~# '\v^(screen|tmux)\.'
+            let host_term = matchstr(term, '\v^(screen|tmux)\.\zs.*')
         " Maybe XTERM_VERSION is set.
         elseif !empty($XTERM_VERSION)
             let host_term = "xterm"
@@ -234,6 +238,34 @@ function! s:TtyFactoryScreen()
     \ }
 endfunction
 
+function! s:TtyFactoryTmux()
+    let base = s:TtyFactory()
+    if empty(base)
+        return {}
+    endif
+
+    " tmux uses a 256-byte input buffer (tmux.h, input_buf member of input_ctx)
+    " with the last byte reserved for NUL. We start each send with the 7
+    " characters ESC Ptmux; and end with ESC \. Of this, only the tmux; is
+    " stored in tmux's input buffer, and therefore this only accounts for 5
+    " bytes used up of the 255 byte limit. This means that the builtin limit for
+    " TtyFactoryTmux is 250.
+    let tmux_max = 250
+
+    " All of this is sent through base, and we need to stay under its limit.
+    " Therefore we subtract off the 7 leading bytes and 2 trailing bytes, then
+    " divide by 2 based on the pessimistic assumption that all the other
+    " characters will be ESC and will be doubled.
+    let base_max = (base.code_max - 7 - 2) / 2
+
+    let code_max = min([tmux_max, base_max])
+    return {
+        \ "SendCode" : function("s:TtySendCode_Tmux"),
+        \ "code_max" : code_max,
+        \ "_base" : base,
+    \ }
+endfunction
+
 function! s:TtySendCode_Screen(code) dict
     " Screen's Device Control String (DCS) can be used to pass a command to
     " the host terminal, but it has limitations. First, it must be shorter
@@ -243,6 +275,16 @@ function! s:TtySendCode_Screen(code) dict
     " without interpreting it, but it stays in the STRESC state afterward, so
     " it still interprets a following backslash as the end of the DCS.
     call self._base.SendCode(printf("\033P%s\033\\", a:code))
+endfunction
+
+function! s:TtySendCode_Tmux(code) dict
+    " Double escapes. Note that even though this expands the output buffer, each
+    " doubled escape is collapsed to a single escape character in tmux's input
+    " buffer, therefore this won't push us over the 255 character limit. Of
+    " course it *could* push over the limit for _base if we aren't careful (this
+    " is accounted for in the calculation of the tmux code_max).
+    let escaped = substitute(a:code, "\e", "\e\e", "g")
+    call self._base.SendCode(printf("\ePtmux;%s\e\\", escaped))
 endfunction
 
 " }}}
