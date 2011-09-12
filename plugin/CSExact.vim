@@ -41,45 +41,24 @@ set cpo&vim
 " {{{ TERMINAL ABSTRACTION
 
 function! s:TermFactory()
-    let term = s:Term()
+    let term = csexact#TermDetails(1)
 
-    if term =~# '\v^(screen|tmux)'
-        if term =~# '\v^tmux' || exists("$TMUX")
-            let tty = s:TtyFactoryTmux()
-        else
-            let tty = s:TtyFactoryScreen()
-        endif
-
-        " Figure out host term.
-
-        " Maybe term is multiplexer.host-term.
-        if term =~# '\v^(screen|tmux)\.'
-            let host_term = matchstr(term, '\v^(screen|tmux)\.\zs.*')
-        " Maybe XTERM_VERSION is set.
-        elseif !empty($XTERM_VERSION)
-            let host_term = "xterm"
-        " Maybe COLORTERM is set.
-        elseif !empty($COLORTERM)
-            let host_term = $COLORTERM
-        " Unknown
-        else
-            let host_term = ""
-        endif
+    if get(term, 'multiplexer') =~# '\v^tmux'
+        let tty = s:TtyFactoryTmux()
+    elseif get(term, 'multiplexer') =~# '\v^screen'
+        let tty = s:TtyFactoryScreen()
     else
         let tty = s:TtyFactory()
-        let host_term = term
     endif
 
-    if s:Colors() < 88 || host_term !~# '\v^(xterm|gnome|xfce|rxvt)'
-        return {}
-    endif
-
-    if empty(tty)
+    if s:Colors() < 88 ||
+            \ get(term, 'host_term') !~# '\v^(xterm|gnome|xfce|rxvt)' ||
+            \ empty(tty)
         return {}
     endif
 
     " Special case: XTerm patch 252 and up supports OSC 104 to reset colors.
-    if host_term =~# '\v^xterm'
+    if get(term, 'host_term') =~# '\v^xterm'
         let xterm_patch = str2nr(matchstr($XTERM_VERSION,
                                         \ '\v^XTerm\(\zs\d+\ze\)'))
     endif
@@ -91,9 +70,9 @@ function! s:TermFactory()
         let colors = s:Colors()
         let Reset = function("s:TermResetColors_Defaults")
         if colors == 88
-            let default_colors = g:csexactdata#xterm88
+            let default_colors = g:csexact#xterm88
         elseif colors == 256
-            let default_colors = g:csexactdata#xterm256
+            let default_colors = g:csexact#xterm256
         else
             return {}
         endif
@@ -302,10 +281,6 @@ function! s:CSExactErrorWrapper(func, ...)
     endtry
 endfunction
 
-function! s:Term()
-    return get(g:, "csexact_term_override", &term)
-endfunction
-
 function! s:Colors()
     return get(g:, "csexact_colors_override", &t_Co)
 endfunction
@@ -490,7 +465,7 @@ function! s:NormalizeColor(color)
         return "none"
     endif
 
-    return get(g:csexactdata#color_names, lower_color, lower_color)
+    return get(g:csexact#color_names, lower_color, lower_color)
 endfunction
 
 function! s:ResolveLinks(groupname, highlights)

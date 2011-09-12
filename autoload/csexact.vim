@@ -1,5 +1,5 @@
 " Data for CSExact.
-" Last Change: 2011 Jan 29
+" Last Change: 2011 September 11
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -27,8 +27,81 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
+" {{{ UTILITY FUNCTIONS
+
+" csexat#TermDetails attempts to determine information about the underlying
+" terminal and returns a dictionary of the information it finds. This is used
+" inside CSExact, but can also be useful in a vimrc file to decide how to set
+" options like g:csexact_cursor_reset. Pass in a "true" value to cause it to
+" use the value of g:csexact_term_override. Otherwise this is ignored and only
+" &term is used.
+"
+" If the detection used here isn't working for your configuration you can force
+" this to see the terminal and multiplexer of your choice by setting &term or
+" g:csexact_term_override to <multiplexer>.<host_term>.
+"
+" The resulting dictionary may include these fields:
+"
+"   result.term:        The terminal (screen, tmux, xterm, etc.)
+"   result.multiplexer: The terminal multiplexer, if available (screen or tmux)
+"   result.host_term:   The underlying terminal, if it can be determined
+"
+" 'term' is the "top" terminal, and will be the same as 'multiplexer' or
+" 'host_term', depending on whether a multiplexer is running or not.
+"
+" Any field except 'term' might be missing in the result if it can't be
+" determined.
+function! csexact#TermDetails(...)
+    if a:0 == 1
+        let use_override = a:1
+    else
+        let use_override = 0
+    endif
+
+    if use_override
+        let term = get(g:, "csexact_term_override", &term)
+    else
+        let term = &term
+    endif
+
+    let result = {}
+
+    " In screen or tmux, term typically starts with "screen". We also recognize
+    " "tmux" as an indication that the multiplexer is tmux.
+    if term =~# '\v^(screen|tmux)'
+        if term =~# '\v^tmux' || exists("$TMUX")
+            let result.multiplexer = "tmux"
+        else
+            let result.multiplexer = "screen"
+        endif
+
+        let result.term = result.multiplexer
+
+        " Figure out host term.
+
+        " Maybe term is multiplexer.host-term.
+        if term =~# '\v^(screen|tmux)\.'
+            let result.host_term = matchstr(term, '\v^(screen|tmux)\.\zs.*')
+        " Maybe XTERM_VERSION is set.
+        elseif !empty($XTERM_VERSION)
+            let result.host_term = "xterm"
+        " Maybe COLORTERM is set.
+        elseif !empty($COLORTERM)
+            let result.host_term = $COLORTERM
+        endif
+    else
+        let result.term = term
+        let result.host_term = term
+    endif
+
+    return result
+endfunction
+
+" }}}
+" {{{ INTERNALS
+
 " From Vim source, gui_x11.c
-let csexactdata#color_names = {
+let csexact#color_names = {
     \ "lightred"     : "#ffbbbb",
     \ "lightgreen"   : "#88ff88",
     \ "lightmagenta" : "#ffbbff",
@@ -59,7 +132,7 @@ let csexactdata#color_names = {
 \ }
 
 " From xterm source, 256colres.h
-let csexactdata#xterm256 = {
+let csexact#xterm256 = {
     \ 16  : "#000000",
     \ 17  : "#00005f",
     \ 18  : "#000087",
@@ -303,7 +376,7 @@ let csexactdata#xterm256 = {
 \ }
 
 " From xterm source, 88colres.h
-let csexactdata#xterm88 = {
+let csexact#xterm88 = {
     \ 16 : "#000000",
     \ 17 : "#00008b",
     \ 18 : "#0000cd",
@@ -414,6 +487,8 @@ function! s:ReadRgbTxt()
     return colors
 endfunction
 
-call extend(csexactdata#color_names, s:ReadRgbTxt())
+call extend(csexact#color_names, s:ReadRgbTxt())
+
+" }}}
 
 let &cpo = s:save_cpo
