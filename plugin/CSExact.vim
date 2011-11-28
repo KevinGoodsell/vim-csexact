@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 September 11
+" Last Change: 2011 November 27
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -70,9 +70,9 @@ function! s:TermFactory()
         let colors = s:Colors()
         let Reset = function("s:TermResetColors_Defaults")
         if colors == 88
-            let default_colors = g:csexact#xterm88
+            let default_colors = g:csexactdata#xterm88
         elseif colors == 256
-            let default_colors = g:csexact#xterm256
+            let default_colors = g:csexactdata#xterm256
         else
             return {}
         endif
@@ -465,7 +465,7 @@ function! s:NormalizeColor(color)
         return "none"
     endif
 
-    return get(g:csexact#color_names, lower_color, lower_color)
+    return get(g:csexactdata#color_names, lower_color, lower_color)
 endfunction
 
 function! s:ResolveLinks(groupname, highlights)
