@@ -1,11 +1,11 @@
 " Data for CSExact.
-" Last Change: 2011 November 27
+" Last Change: 2015 May 8
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
 " {{{ COPYRIGHT & LICENSE
 "
-" Copyright 2011 Kevin Goodsell
+" Copyright 2011-2015 Kevin Goodsell
 "
 " This file is part of CSExact.
 "
@@ -384,6 +384,7 @@ let s:rgbtxt_locations = [
     \ $VIMRUNTIME . "/rgb.txt",
     \ "/usr/share/X11/rgb.txt",
     \ "/usr/X11R6/lib/X11/rgb.txt",
+    \ "/opt/X11/share/X11/rgb.txt",
     \ "c:/cygwin/usr/X11R6/lib/X11/rgb.txt",
 \ ]
 
