@@ -402,17 +402,21 @@ function! s:CSExactRefresh()
 endfunction
 
 function! s:GetHighlights()
+    " Extend columns temporarily to prevent line wrapping in messages.
+    let saved_columns = &columns
+    set columns=99999
     redir => hltext
     silent highlight
     redir END
+    let &columns = saved_columns
 
-    " :highlight wraps, need to unwrap.
-    let hltext = substitute(hltext, '\v\n +', " ", "g")
     let hlgroups = split(hltext, '\n')
 
     let result = {} " {'GroupName' : info_dict}
     for group in hlgroups
-        let parts = matchlist(group, '\v^(\w+) +xxx (.*)$')
+        " Theoretically the group name could consist of any printable
+        " characters. Not sure about whitespace.
+        let parts = matchlist(group, '\v^(\p+) +xxx (.*)$')
         if empty(parts)
             echomsg printf("CSExact: Bad highlight line '%s'", group)
             continue
