@@ -417,7 +417,7 @@ function! s:GetHighlights()
     for group in hlgroups
         " Theoretically the group name could consist of any printable
         " characters. Not sure about whitespace.
-        let parts = matchlist(group, '\v^(\p+) +xxx (.*)$')
+        let parts = matchlist(group, '\v^(\S+) +xxx (.*)$')
         if empty(parts)
             echomsg printf("CSExact: Bad highlight line '%s'", group)
             continue
