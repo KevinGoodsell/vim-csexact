@@ -406,7 +406,8 @@ function! s:GetHighlights()
     let saved_columns = &columns
     set columns=99999
     redir => hltext
-    silent highlight
+    " 0verbose turns off any verbose messages so we don't have to parse them.
+    0verbose silent highlight
     redir END
     let &columns = saved_columns
 
