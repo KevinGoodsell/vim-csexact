@@ -414,7 +414,11 @@ function! s:GetHighlights()
     let hlgroups = split(hltext, '\n')
 
     let result = {} " {'GroupName' : info_dict}
-    for group in hlgroups
+    let i = 0
+    while i < len(hlgroups)
+        let group = hlgroups[i]
+        let i += 1
+
         " Theoretically the group name could consist of any printable
         " characters. Not sure about whitespace.
         let parts = matchlist(group, '\v^(\S+) +xxx (.*)$')
@@ -431,13 +435,14 @@ function! s:GetHighlights()
             continue
         endif
 
-        let items = {}
-
         " Links To...?
-        let parts = matchlist(item_string, '\v^%((.*) )?links to (\w+)$')
+        let parts = matchlist(item_string, '\v^links to (\S+)$')
         if !empty(parts)
-            let [item_string, items.links_to] = parts[1:2]
+            let result[name] = { "links_to" : parts[1] }
+            continue
         endif
+
+        let items = {}
 
         " Key-Value items
         for kv in split(item_string, '\v \ze\w+\=')
@@ -453,8 +458,26 @@ function! s:GetHighlights()
             endif
         endfor
 
+        " It's possible to have both specific attributes (term=..., etc.) and
+        " also have a link. This can be done by setting attributes, then using
+        " :highlight! link GroupName AnotherGroupName. In the :highlight output
+        " it looks like this:
+        "
+        " SpellLocal     xxx term=underline ctermbg=14 gui=undercurl guisp=Cyan
+        "                links to Error
+        "
+        " Here we look ahead to see if there's an "links to" on the next line.
+
+        if i < len(hlgroups)
+            let parts = matchlist(hlgroups[i], '\v^\s+ links to (\S+)$')
+            if !empty(parts)
+                let items.links_to = parts[1]
+                let i += 1
+            endif
+        endif
+
         let result[name] = items
-    endfor
+    endwhile
 
     return result
 endfunction
