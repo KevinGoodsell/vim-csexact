@@ -402,14 +402,17 @@ function! s:CSExactRefresh()
 endfunction
 
 function! s:GetHighlights()
-    " Extend columns temporarily to prevent line wrapping in messages.
-    let saved_columns = &columns
-    set columns=99999
+    " Extend columns temporarily to prevent line wrapping in messages. Also turn
+    " off verbose temporarily to prevent unwanted messages.
+    let [saved_columns, saved_verbose] = [&columns, &verbose]
+    set columns=99999 verbose=0
+
     redir => hltext
-    " 0verbose turns off any verbose messages so we don't have to parse them.
-    0verbose silent highlight
+    silent highlight
     redir END
-    let &columns = saved_columns
+
+    " Restore columns and verbose.
+    let [&columns, &verbose] = [saved_columns, saved_verbose]
 
     let hlgroups = split(hltext, '\n')
 
