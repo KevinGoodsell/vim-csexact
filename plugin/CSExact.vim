@@ -426,7 +426,10 @@ function! s:GetHighlights()
         " characters. Not sure about whitespace.
         let parts = matchlist(group, '\v^(\S+) +xxx (.*)$')
         if empty(parts)
-            echomsg printf("CSExact: Bad highlight line '%s'", group)
+            if group !~ '^\s*xxx cleared$'
+                echomsg printf("CSExact: Bad highlight line '%s'", group)
+            endif
+
             continue
         endif
 
