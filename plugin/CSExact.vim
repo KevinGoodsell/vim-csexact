@@ -196,7 +196,12 @@ function! s:TtyFactory()
 endfunction
 
 function! s:TtySendCode_DevTty(code)
-    call writefile([a:code], "/dev/tty", "b")
+    " At some point in Vim 8 writefile started using fsync() (depending on the
+    " 'fsync' setting) and add the 's' and 'S' flag to control this. fsync()
+    " fails on /dev/tty, so we use the 'S' flag to supress it. It seems that the
+    " extra flag is ignored in Vim versions that don't know about it, so this
+    " should be safe.
+    call writefile([a:code], "/dev/tty", "bS")
 endfunction
 
 function! s:TtyFactoryScreen()
