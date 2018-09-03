@@ -428,14 +428,22 @@ function! s:GetHighlights()
         let i += 1
 
         " Theoretically the group name could consist of any printable
-        " characters. Not sure about whitespace.
-        let parts = matchlist(group, '\v^(\S+) +xxx (.*)$')
+        " characters. Not sure about whitespace. Group names can also be empty
+        " in some cases, see below.
+        let parts = matchlist(group, '\v^(\S*) +xxx (.*)$')
         if empty(parts)
             echomsg printf("CSExact: Bad highlight line '%s'", group)
             continue
         endif
 
         let [name, item_string] = parts[1:2]
+
+        " Empty group names can be produced in some cases, for example the
+        " command ":sign define blah linehl=". Presumably these groups are not
+        " useful, so skip them. See github issue 11.
+        if name == ""
+            continue
+        endif
 
         " Cleared?
         if item_string == "cleared"
