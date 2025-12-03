@@ -1,5 +1,5 @@
 " Vim global plugin to use GVim colorschemes with terminals
-" Last Change: 2011 November 27
+" Last Change: 2025 December 3
 " Maintainer:  Kevin Goodsell <kevin-opensource@omegacrash.net>
 " License:     GPL (see below)
 
@@ -407,93 +407,54 @@ function! s:CSExactRefresh()
 endfunction
 
 function! s:GetHighlights()
-    " Extend columns temporarily to prevent line wrapping in messages. Also turn
-    " off verbose temporarily to prevent unwanted messages.
-    let [saved_columns, saved_verbose] = [&columns, &verbose]
-    set columns=99999 verbose=0
-
-    redir => hltext
-    silent highlight
-    redir END
-
-    " Restore columns and verbose.
-    let [&columns, &verbose] = [saved_columns, saved_verbose]
-
-    let hlgroups = split(hltext, '\n')
-
     let result = {} " {'GroupName' : info_dict}
-    let i = 0
-    while i < len(hlgroups)
-        let group = hlgroups[i]
-        let i += 1
 
-        " Theoretically the group name could consist of any printable
-        " characters. Not sure about whitespace. Group names can also be empty
-        " in some cases, see below.
-        let parts = matchlist(group, '\v^(\S*) +xxx (.*)$')
-        if empty(parts)
-            echomsg printf("CSExact: Bad highlight line '%s'", group)
-            continue
-        endif
+    for hlgroup in hlget()
+        let name = get(hlgroup, "name")
+        " Note that in the past name could be empty, and we would check for
+        " that and ignore the group. See github issue 11. Vim fixed this problem
+        " in patch 8.2.3743, and we're not supporting 8 anymore (hlget is new in
+        " Vim 9), so no longer needed.
 
-        let [name, item_string] = parts[1:2]
-
-        " Empty group names can be produced in some cases, for example the
-        " command ":sign define blah linehl=". Presumably these groups are not
-        " useful, so skip them. See github issue 11.
-        if name == ""
-            continue
-        endif
-
-        " Cleared?
-        if item_string == "cleared"
+        " Is it cleared?
+        if get(hlgroup, "cleared", v:false)
             let result[name] = {}
             continue
         endif
 
-        " Links To...?
-        let parts = matchlist(item_string, '\v^links to (\S+)$')
-        if !empty(parts)
-            let result[name] = { "links_to" : parts[1] }
+        " Is it a link?
+        let target = get(hlgroup, "linksto", "")
+        if !empty(target)
+            let result[name] = { "links_to": target }
             continue
         endif
 
-        let items = {}
+        let group_dict = {}
 
-        " Key-Value items
-        for kv in split(item_string, '\v \ze\w+\=')
-            let [key, value] = matchlist(kv, '\v(\w+)\=(.*)')[1:2]
-
-            if key =~ '\v(fg|bg|sp)$'
-                " Handle color
-                let norm = s:NormalizeColor(value)
-                let items[key] = norm
-            elseif key =~ '\v^(gui|cterm)$'
-                " Handle attributes
-                let items[key] = split(value, ",")
+        " Colors
+        for key in ["ctermfg", "ctermbg", "guifg", "guibg", "guisp"]
+            let color = get(hlgroup, key, "")
+            if !empty(color)
+                let normal = s:NormalizeColor(color)
+                let group_dict[key] = normal
             endif
         endfor
 
-        " It's possible to have both specific attributes (term=..., etc.) and
-        " also have a link. This can be done by setting attributes, then using
-        " :highlight! link GroupName AnotherGroupName. In the :highlight output
-        " it looks like this:
-        "
-        " SpellLocal     xxx term=underline ctermbg=14 gui=undercurl guisp=Cyan
-        "                links to Error
-        "
-        " Here we look ahead to see if there's an "links to" on the next line.
+        " Attributes
+        for key in ["gui", "cterm"]
+            let attributes = get(hlgroup, key, {})
+            " Only keep attributes with v:true, indicating that they are set. I
+            " suspect that attributes are never included with any value other
+            " than v:true, but the docs aren't explicit about that.
+            let attributes = filter(copy(attributes), 'v:val == v:true')
 
-        if i < len(hlgroups)
-            let parts = matchlist(hlgroups[i], '\v^\s+ links to (\S+)$')
-            if !empty(parts)
-                let items.links_to = parts[1]
-                let i += 1
+            if !empty(attributes)
+                let group_dict[key] = keys(attributes)
             endif
-        endif
+        endfor
 
-        let result[name] = items
-    endwhile
+        let result[name] = group_dict
+    endfor
 
     return result
 endfunction
